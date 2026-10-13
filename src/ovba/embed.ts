@@ -35,10 +35,6 @@ export interface VbaHost {
   sheets: string[];
 }
 
-export function canEmbedIntoExisting(): boolean {
-  return false;
-}
-
 let cp949: Map<string, [number, number]> | null = null;
 
 /** 브라우저에는 CP949 인코더가 없어 EUC-KR 디코더로 역표를 만든다. */
@@ -55,7 +51,7 @@ function cp949Table(): Map<string, [number, number]> {
   return cp949;
 }
 
-function encode(text: string, codePage: number): Uint8Array {
+export function encodeVbaText(text: string, codePage: number): Uint8Array {
   const out: number[] = [];
   for (const ch of text) {
     const code = ch.codePointAt(0)!;
@@ -154,8 +150,48 @@ function dirStream(modules: VbaModule[], codePage: number): Uint8Array {
   return w.out();
 }
 
+const encode = encodeVbaText;
+
+/** MS-OVBA 2.4.3의 역: CMG/DPB/GC 값을 풀어 데이터 바이트를 돌려준다. */
+function decryptHex(hex: string): number[] | null {
+  if (!/^[0-9A-F]+$/i.test(hex) || hex.length < 6 || hex.length % 2) return null;
+  const b = hex.match(/../g)!.map((x) => parseInt(x, 16));
+  const seed = b[0];
+  const projKeyEnc = b[2];
+  let unencrypted1 = seed ^ projKeyEnc;
+  let encrypted1 = projKeyEnc;
+  let encrypted2 = b[1];
+  const plain: number[] = [];
+  for (const enc of b.slice(3)) {
+    const dec = (enc ^ ((encrypted2 + unencrypted1) & 0xff)) & 0xff;
+    plain.push(dec);
+    encrypted2 = encrypted1;
+    encrypted1 = enc;
+    unencrypted1 = dec;
+  }
+  const body = plain.slice((seed & 6) / 2);
+  if (body.length < 4) return null;
+  const len = body[0] | (body[1] << 8) | (body[2] << 16) | (body[3] << 24);
+  return body.slice(4, 4 + len);
+}
+
+/** PROJECT 스트림 기준으로 암호·보기 잠금이 걸린 프로젝트인지 본다. */
+export function isProjectLocked(projectText: string): boolean {
+  const value = (key: string) => new RegExp(`^${key}="([0-9A-Fa-f]+)"`, "m").exec(projectText)?.[1];
+  const cmg = value("CMG");
+  const dpb = value("DPB");
+  const gc = value("GC");
+  const protection = cmg ? decryptHex(cmg) : null;
+  const password = dpb ? decryptHex(dpb) : null;
+  const visible = gc ? decryptHex(gc) : null;
+  if (protection && protection.some((x) => x !== 0)) return true;
+  if (password && (password.length > 1 || password[0] !== 0)) return true;
+  if (visible && visible[0] === 0) return true;
+  return false;
+}
+
 /** MS-OVBA 2.4.3 데이터 암호화 (CMG/DPB/GC 값). */
-function encryptHex(data: number[]): string {
+export function encryptHex(data: number[]): string {
   let projKey = 0;
   for (const ch of PROJECT_ID) projKey = (projKey + ch.charCodeAt(0)) & 0xff;
   const seed = Math.floor(Math.random() * 256);

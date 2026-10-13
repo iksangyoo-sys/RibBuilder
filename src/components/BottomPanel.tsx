@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { generateCustomUi, prettyXml } from "@/xml/generate";
-import { generateVba } from "@/vba/generate";
+import { panelVba } from "@/vba/generate";
 import { findControl, findGroup, findTab } from "@/model/walk";
 import { useEditorStore } from "@/store/useEditorStore";
 
@@ -14,9 +14,10 @@ type Props = {
 export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) {
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
+  const hasExistingVba = useEditorStore((s) => s.hasExistingVba);
   const selection = useEditorStore((s) => s.selection);
   const xml = prettyXml(generateCustomUi(ribbon));
-  const vba = generateVba(ribbon, macros);
+  const vba = panelVba(ribbon, macros, hasExistingVba);
   const highlightId = selectedXmlId(ribbon, selection);
   const fold = (
     <button

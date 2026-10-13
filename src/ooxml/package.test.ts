@@ -4,7 +4,7 @@ import { createControl, createCustomTab, createGroup } from "@/model/factory";
 import { IdIssuer } from "@/model/ids";
 import { generateCustomUi } from "@/xml/generate";
 import { openWorkbook } from "./read";
-import { buildWorkbookBlob } from "./write";
+import { buildWorkbookBlob, downloadName } from "./write";
 import { BLANK_XLSX_B64 } from "./blank";
 import { UI_REL_2007, imageRelsXml } from "./rels";
 
@@ -106,5 +106,15 @@ describe("workbook package", () => {
   it("리본 이미지는 표준 이미지 관계 형식으로 연결한다", () => {
     const rels = imageRelsXml([{ id: "img_chatgpt", ext: "png" }]);
     expect(rels).toContain('Id="img_chatgpt" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/img_chatgpt.png"');
+  });
+
+  it("추가 기능·매크로 통합 문서는 확장자를 그대로 두고, .xlsx만 .xlsm으로 바꾼다", () => {
+    const base = { originBytes: null, doc: { tabs: [] }, images: [], vbaSource: "", hasExistingVba: true, includeVba: true };
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "도구.xlam" })).toBe("도구_ribbon.xlam");
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "업무자동화_ribbon_1.xlam" })).toBe("업무자동화_ribbon.xlam");
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "업무자동화_ribbon (2).xlam" })).toBe("업무자동화_ribbon.xlam");
+    expect(downloadName({ ...base, originKind: "xlsm", fileName: "a_ribbon.xlsm" })).toBe("a_ribbon.xlsm");
+    expect(downloadName({ ...base, originKind: "xlsx", fileName: "b.xlsx" })).toBe("b_ribbon.xlsm");
+    expect(downloadName({ ...base, originKind: "blank", fileName: "새 통합문서.xlsx" })).toBe("새 통합문서.xlsm");
   });
 });

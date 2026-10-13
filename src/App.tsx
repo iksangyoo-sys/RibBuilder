@@ -48,7 +48,7 @@ export function App() {
   const [confirm, setConfirm] = useState<{ message: string; run: () => void } | null>(null);
   const [issues, setIssues] = useState<ReturnType<typeof validateDoc> | null>(null);
   const [notice, setNotice] = useState("");
-  const [saved, setSaved] = useState<{ name: string; includeVba: boolean; hasCallback: boolean } | null>(null);
+  const [saved, setSaved] = useState<{ name: string; includeVba: boolean; hasCallback: boolean; appendedModule?: string } | null>(null);
 
   useEffect(() => {
     const onBefore = (e: BeforeUnloadEvent) => {
@@ -189,14 +189,16 @@ export function App() {
       doc: s.ribbon,
       images: s.images,
       // 연결된 콜백이 없으면 매크로 없는 .xlsx로 저장한다.
-      includeVba: s.includeVba && !s.hasExistingVba && collectCallbacks(s.ribbon).length > 0,
-      vbaSource: generateVba(s.ribbon, s.macros, { embedded: true }),
+      includeVba: s.includeVba && collectCallbacks(s.ribbon).length > 0,
+      // 이미 VBA가 있으면 파일에 없는 매크로만 새 모듈로 더한다.
+      vbaSource: generateVba(s.ribbon, s.macros, { embedded: true, appendOnly: s.hasExistingVba }),
       hasExistingVba: s.hasExistingVba,
+      report: {} as { appendedModule?: string; vbaError?: string },
     };
-    if (s.includeVba && s.hasExistingVba) {
-      setNotice("기존 VBA가 있어 코드 복사 방식만 지원합니다. VBA 패널의 코드를 모듈에 붙여 넣으세요.");
-    }
     const blob = await buildWorkbookBlob(opts);
+    if (opts.report.vbaError) {
+      setNotice(`${opts.report.vbaError} 기존 VBA는 그대로 저장했습니다. 새 매크로는 VBA 패널의 코드를 복사해 붙여 넣으세요.`);
+    }
     const name = downloadName({ ...opts, includeVba: opts.includeVba });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -209,7 +211,7 @@ export function App() {
       a.remove();
     }, 1000);
     s.markSaved();
-    setSaved({ name, includeVba: opts.includeVba, hasCallback: collectCallbacks(s.ribbon).length > 0 });
+    setSaved({ name, includeVba: opts.includeVba && !opts.report.vbaError, hasCallback: collectCallbacks(s.ribbon).length > 0, appendedModule: opts.report.appendedModule });
   }, []);
 
   const beginSave = () => {
@@ -333,7 +335,7 @@ export function App() {
           }}
         />
       ) : null}
-      {saved ? <SavedModal fileName={saved.name} includeVba={saved.includeVba} hasCallback={saved.hasCallback} onClose={() => setSaved(null)} /> : null}
+      {saved ? <SavedModal fileName={saved.name} includeVba={saved.includeVba} hasCallback={saved.hasCallback} appendedModule={saved.appendedModule} onClose={() => setSaved(null)} /> : null}
     </div>
   );
 }

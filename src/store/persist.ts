@@ -7,7 +7,7 @@ export interface DraftPayload {
   originKind: OriginKind;
   originBytesB64: string | null;
   includeVba: boolean;
-  /** 2부터 includeVba가 사용자의 선택이다. 그 전 초안은 VBA 저장이 막혀 있어 값이 의미 없다. */
+  /** 3부터 includeVba가 사용자의 선택이다. 그 전 초안은 VBA 저장이 막혀 있었거나(1) 기존 VBA 파일에서 꺼져 있어(2) 값이 의미 없다. */
   vbaPref?: number;
   hasExistingVba: boolean;
   ribbon: RibbonDoc;
@@ -42,7 +42,7 @@ export function saveDraft(payload: Omit<DraftPayload, "savedAt" | "originBytesB6
       originKind: payload.originKind,
       originBytesB64,
       includeVba: payload.includeVba,
-      vbaPref: 2,
+      vbaPref: 3,
       hasExistingVba: payload.hasExistingVba,
       ribbon: payload.ribbon,
       images: payload.images,

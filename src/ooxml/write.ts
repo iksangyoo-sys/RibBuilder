@@ -16,7 +16,8 @@ import {
 } from "./rels";
 import type { VbaHost } from "@/ovba/embed";
 import { BLANK_XLSX_B64 } from "./blank";
-import { buildVbaProject, canEmbedIntoExisting } from "@/ovba/embed";
+import { buildVbaProject } from "@/ovba/embed";
+import { appendModule } from "@/ovba/append";
 
 export interface SaveOptions {
   originBytes: Uint8Array | null;
@@ -27,6 +28,8 @@ export interface SaveOptions {
   includeVba: boolean;
   vbaSource: string;
   hasExistingVba: boolean;
+  /** 저장 결과 메모: 기존 VBA에 더한 모듈 이름, 또는 더하지 못한 이유. */
+  report?: { appendedModule?: string; vbaError?: string };
 }
 
 function b64ToBytes(b64: string): Uint8Array {
@@ -44,9 +47,11 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 export function downloadName(opts: SaveOptions): string {
   let name = opts.fileName || "새 통합문서.xlsx";
   const m = /^(.*?)(\.(xlsx|xlsm|xlsb|xlam))?$/i.exec(name);
-  const base = (m?.[1] || "새 통합문서").replace(/_ribbon$/i, "");
+  // 이전에 받은 "이름_ribbon", "이름_ribbon_1", "이름_ribbon (1)" 은 원래 이름으로 되돌린다.
+  const base = (m?.[1] || "새 통합문서").replace(/_ribbon(?:_\d+| ?\(\d+\))?$/i, "");
   let ext = m?.[2] || ".xlsx";
-  if (opts.includeVba) ext = ".xlsm";
+  // 매크로 없는 .xlsx만 .xlsm으로 바꾼다 (.xlsm·.xlam·.xlsb는 이미 매크로를 담을 수 있다).
+  if (opts.includeVba && ext.toLowerCase() === ".xlsx") ext = ".xlsm";
   // 새로 만든 통합 문서는 "새 통합문서.xlsm"처럼 그대로, 불러온 파일은 원본과 구분되게 _ribbon을 붙인다.
   return opts.originKind === "blank" ? `${base}${ext}` : `${base}_ribbon${ext}`;
 }
@@ -124,8 +129,15 @@ export async function buildWorkbookBlob(opts: SaveOptions): Promise<Blob> {
     }
     const existing = Object.keys(base.files).find((p) => /vbaProject\.bin$/i.test(p));
     if (existing && opts.hasExistingVba) {
-      if (canEmbedIntoExisting()) {
-        /* 2단계는 안정화 전이라 기존 바이너리를 그대로 둡니다. */
+      // 기존 VBA는 그대로 두고, 파일에 없는 매크로만 새 모듈로 더한다.
+      if (opts.vbaSource.trim()) {
+        const result = appendModule(await base.file(existing)!.async("uint8array"), opts.vbaSource);
+        if (result.ok) {
+          out.file(existing, result.bytes, { compression: "STORE" });
+          if (opts.report) opts.report.appendedModule = result.moduleName;
+        } else if (opts.report) {
+          opts.report.vbaError = result.reason;
+        }
       }
     } else {
       const host = await assignCodeNames(out);
