@@ -1,3 +1,4 @@
+import { CONTROL_NAME } from "@/constants/controls";
 import { KNOWN_IDMSO } from "@/constants/idMso";
 import { isXmlId } from "./ids";
 import { walkControls, walkGroups, walkTabs } from "./walk";
@@ -70,7 +71,7 @@ export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { nam
       issues.push({ level: "error", uid: control.button.uid, message: "주 버튼 레이블이 비어 있습니다." });
     }
     if (needsMacro(control.type) && !macroOf(control)) {
-      issues.push({ level: "warn", uid: control.uid, message: "매크로가 연결되지 않았습니다." });
+      issues.push({ level: "warn", uid: control.uid, message: `${CONTROL_NAME[control.type]} "${control.label || control.id}"에 매크로가 연결되지 않았습니다.` });
     }
     const linked = macroOf(control);
     if (linked) usedMacros.add(linked);
