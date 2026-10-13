@@ -6,6 +6,8 @@
 바로 쓰기: https://iksangyoo-sys.github.io/RibBuilder/ (main에 올리면 GitHub Actions가 자동으로 빌드해 올립니다.)
 인터넷 없이 쓰려면 `ribbon-editor.html`을 내려받아 더블클릭하세요.
 
+정비비 대시보드: https://iksangyoo-sys.github.io/RibBuilder/dashboard/ (`dashboard/` 폴더, 자세한 내용은 [dashboard/README.md](dashboard/README.md))
+
 ## 사용 흐름
 
 1. 탭·그룹·컨트롤을 배치하고, 컨트롤마다 콜백(VBA) 매크로를 연결합니다.
