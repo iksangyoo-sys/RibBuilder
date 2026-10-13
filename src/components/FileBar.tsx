@@ -4,9 +4,10 @@ type Props = {
   onOpenFile: () => void;
   onSave: () => void;
   onHelp: () => void;
+  onMacros: () => void;
 };
 
-export function FileBar({ onOpenFile, onSave, onHelp }: Props) {
+export function FileBar({ onOpenFile, onSave, onHelp, onMacros }: Props) {
   const fileName = useEditorStore((s) => s.fileName);
   const dirty = useEditorStore((s) => s.dirty);
   const includeVba = useEditorStore((s) => s.includeVba);
@@ -27,6 +28,7 @@ export function FileBar({ onOpenFile, onSave, onHelp }: Props) {
         <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-40" disabled={!canUndo} onClick={undo} aria-label="실행 취소">실행 취소</button>
         <button type="button" className="rounded border border-line px-2 py-1 disabled:opacity-40" disabled={!canRedo} onClick={redo} aria-label="다시 실행">다시 실행</button>
         <button type="button" className="rounded border border-line px-2 py-1" onClick={onHelp}>사용법</button>
+        <button type="button" className="rounded border border-line px-2 py-1" onClick={onMacros}>매크로 관리</button>
         <label className="inline-flex items-center gap-1">
           <input type="checkbox" checked={includeVba} onChange={(e) => setIncludeVba(e.target.checked)} />
           VBA 포함

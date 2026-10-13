@@ -87,6 +87,7 @@ export interface EditorState {
   removeImage: (id: string) => void;
   addMacro: (macro: MacroDef) => void;
   removeMacro: (name: string) => void;
+  removeMacros: (names: string[]) => void;
   renameMacro: (oldName: string, newName: string) => void;
   setMacroBody: (name: string, body: string) => void;
   importXml: (xml: string, mode?: "replace" | "merge") => { ok: true; changes: { from: string; to: string }[] } | { ok: false; message: string };
@@ -615,6 +616,12 @@ export const useEditorStore = create<EditorState>((set, get) => {
       commit((s) => {
         s.macros = s.macros.filter((m) => m.name !== name);
         replaceMacro(s.ribbon, name, "");
+      }),
+    removeMacros: (names) =>
+      commit((s) => {
+        const drop = new Set(names);
+        s.macros = s.macros.filter((m) => !drop.has(m.name));
+        for (const name of drop) replaceMacro(s.ribbon, name, "");
       }),
     renameMacro: (oldName, newName) =>
       commit((s) => {

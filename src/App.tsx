@@ -20,7 +20,7 @@ class LeftPointerSensor extends PointerSensor {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BottomPanel } from "./components/BottomPanel";
 import { Canvas, ContextMenu, type MenuState } from "./components/Canvas";
-import { ConfirmModal, HelpModal, IconModal, IssuesModal, NewMacroModal } from "./components/Modals";
+import { ConfirmModal, HelpModal, IconModal, IssuesModal, MacroManager, NewMacroModal } from "./components/Modals";
 import { FileBar } from "./components/FileBar";
 import { Header } from "./components/Header";
 import { Palette, parsePaletteId } from "./components/Palette";
@@ -40,6 +40,7 @@ export function App() {
   const [renaming, setRenaming] = useState<{ kind: "tab" | "group"; uid: string } | null>(null);
   const [help, setHelp] = useState(false);
   const [newMacro, setNewMacro] = useState<{ key: string } | null>(null);
+  const [macroManager, setMacroManager] = useState(false);
   const [icon, setIcon] = useState(false);
   const [xmlIn, setXmlIn] = useState(false);
   const [xmlOut, setXmlOut] = useState(false);
@@ -241,7 +242,7 @@ export function App() {
         onSave={beginSave}
         onExample={openExample}
       />
-      <FileBar onOpenFile={openAnother} onSave={beginSave} onHelp={() => setHelp(true)} />
+      <FileBar onOpenFile={openAnother} onSave={beginSave} onHelp={() => setHelp(true)} onMacros={() => setMacroManager(true)} />
       {notice ? <div className="bg-amber-50 px-4 py-2 text-sm text-sand">{notice}<button type="button" className="ml-3 underline" onClick={() => setNotice("")}>닫기</button></div> : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="grid min-h-0 flex-1 grid-cols-[200px_minmax(0,1fr)_320px]">
@@ -264,6 +265,7 @@ export function App() {
             onDelete={requestDelete}
             onIcon={() => setIcon(true)}
             onNewMacro={(key) => setNewMacro({ key })}
+            onManageMacros={() => setMacroManager(true)}
           />
         </div>
         <DragOverlay />
@@ -295,7 +297,13 @@ export function App() {
         }}
       />
       {help ? <HelpModal onClose={() => setHelp(false)} /> : null}
-      {newMacro ? <NewMacroModal target={newMacro.key} onClose={() => setNewMacro(null)} /> : null}
+      {macroManager ? (
+        <MacroManager
+          onClose={() => setMacroManager(false)}
+          onCreate={() => { setMacroManager(false); setNewMacro({ key: "" }); }}
+        />
+      ) : null}
+      {newMacro ? <NewMacroModal target={newMacro.key || undefined} onClose={() => setNewMacro(null)} /> : null}
       {xmlIn ? <XmlImportModal onClose={() => setXmlIn(false)} /> : null}
       {xmlOut ? <XmlExportModal onClose={() => setXmlOut(false)} onGoto={(uid) => {
         const s = useEditorStore.getState();
