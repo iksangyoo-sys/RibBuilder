@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pine: #1f4d3a;
+  --color-pine-dark: #123226;
+  --color-leaf: #3c8a5c;
+  --color-mist: #e8f1ec;
+  --color-paper: #f6f3ee;
+  --color-card: #fffdf9;
+  --color-ink: #1c1916;
+  --color-mute: #6b645c;
+  --color-line: #ddd4c8;
+  --color-clay: #a33b2b;
+  --color-sand: #c4a574;
+  --font-sans: "Pretendard", "Malgun Gothic", "Segoe UI", sans-serif;
+}
+
+html, body, #root { height: 100%; }
+body { margin: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-sans); }
+button { font: inherit; }
+input, select, textarea { font: inherit; color: inherit; }
+
+.hl-tag { color: #1f4d3a; }
+.hl-attr { color: #8a4b12; }
+.hl-str { color: #1a5f7a; }
