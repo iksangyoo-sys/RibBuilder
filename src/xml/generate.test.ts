@@ -88,7 +88,7 @@ describe("generateCustomUi", () => {
     const vba = generateVba(doc);
     expect(vba).toContain("Sub btn_ChatGPT(control As IRibbonControl)");
     expect(vba).toContain("Select Case control.ID");
-    expect(vba).toContain('MsgBox "btn_ChatGPT / btn_6"');
+    expect(vba).toContain('MsgBox "btn_ChatGPT 호출됨 (btn_6)"');
     expect(vba.match(/Sub btn_ChatGPT\(/g)?.length).toBe(1);
   });
 

@@ -2,7 +2,7 @@ import { CONTROL_NAME } from "@/constants/controls";
 import { KNOWN_IDMSO } from "@/constants/idMso";
 import { isXmlId } from "./ids";
 import { walkControls, walkGroups, walkTabs } from "./walk";
-import { collectCallbacks } from "@/vba/generate";
+import { KIND_NAME, collectCallbacks, signatureConflicts } from "@/vba/generate";
 import type { Issue, RibbonDoc } from "./types";
 
 function needsMacro(type: string): boolean {
@@ -97,6 +97,15 @@ export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { nam
 
   // getPressed·getText·getSelectedItemID·onLoad 같은 콜백에 연결된 매크로도 사용 중으로 본다.
   for (const cb of collectCallbacks(doc)) usedMacros.add(cb.name);
+  // 한 Sub는 서명이 하나뿐이라, 서명이 다른 콜백끼리 같은 매크로를 쓰면 엑셀에서 한쪽이 실행되지 않는다.
+  for (const { name, refs } of signatureConflicts(doc)) {
+    const uses = refs.map((r) => `${r.label || r.controlId || "리본"}(${KIND_NAME[r.kind]})`).join(", ");
+    issues.push({
+      level: "error",
+      uid: refs.find((r) => r.uid !== "settings")?.uid ?? "",
+      message: `매크로 "${name}"가 형식이 다른 콜백에 함께 쓰였습니다: ${uses}. 하나를 다른 매크로로 바꾸세요.`,
+    });
+  }
   for (const m of macros) {
     if (!usedMacros.has(m.name)) issues.push({ level: "warn", uid: "", message: `사용하지 않는 매크로 "${m.name}" 입니다.` });
   }
