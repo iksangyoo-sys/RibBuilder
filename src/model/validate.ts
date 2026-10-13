@@ -14,7 +14,7 @@ function macroOf(control: { type: string; onAction?: string; onChange?: string }
   return control.onAction ?? "";
 }
 
-export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { name: string }[] = []): Issue[] {
+export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { name: string; source?: string }[] = []): Issue[] {
   const issues: Issue[] = [];
   const seen = new Map<string, string>();
   const keytips = new Map<string, string>();
@@ -107,6 +107,8 @@ export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { nam
     });
   }
   for (const m of macros) {
+    // 파일의 VBA에 원래 있던 Sub는 다른 코드에서 부르는 도우미일 수 있어 경고하지 않는다.
+    if (m.source === "file") continue;
     if (!usedMacros.has(m.name)) issues.push({ level: "warn", uid: "", message: `사용하지 않는 매크로 "${m.name}" 입니다.` });
   }
 

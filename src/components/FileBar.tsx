@@ -33,7 +33,7 @@ export function FileBar({ onOpenFile, onSave, onHelp, onMacros }: Props) {
           <input type="checkbox" checked={includeVba} onChange={(e) => setIncludeVba(e.target.checked)} />
           VBA 포함
         </label>
-        {includeVba && hasExistingVba ? <span className="text-xs text-sand">기존 VBA가 있어 코드 복사 방식만 지원합니다.</span> : null}
+        {includeVba && hasExistingVba ? <span className="text-xs text-sand">기존 VBA는 그대로 두고, 없는 매크로만 새 모듈로 더합니다.</span> : null}
         <button type="button" className="rounded border border-line px-2 py-1" onClick={onOpenFile}>다른 파일 불러오기</button>
         <button type="button" className="rounded bg-pine px-3 py-1 font-semibold text-white" onClick={onSave}>저장하기</button>
       </div>

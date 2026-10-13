@@ -116,6 +116,11 @@ const RULE = "' " + "=".repeat(70);
 export interface GenerateOptions {
   /** true면 파일 안 모듈에 넣을 코드라 붙여넣기 안내를 뺀다. */
   embedded?: boolean;
+  /**
+   * true면 이미 VBA가 있는 파일에 새 모듈로 더할 코드만 만든다: 파일에 없는 매크로의 Sub만 넣고,
+   * 기존 모듈과 겹칠 수 있는 MyRibbon·RefreshRibbon·LoadImage는 뺀다. 더할 것이 없으면 빈 문자열.
+   */
+  appendOnly?: boolean;
 }
 
 function usesCustomImage(doc: RibbonDoc): boolean {
@@ -158,10 +163,12 @@ function stubBody(name: string, kind: CallbackKind, refs: CallbackRef[]): string
 }
 
 export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: GenerateOptions = {}): string {
-  const skip = new Set(macros.filter((m) => m.source === "file").map((m) => m.name));
+  // VBA 이름은 대소문자를 가리지 않는다.
+  const skip = new Set(macros.filter((m) => m.source === "file").map((m) => m.name.toLowerCase()));
   const bodies = new Map(macros.filter((m) => m.body).map((m) => [m.name, m.body!]));
   const all = collectCallbacks(doc);
-  const callbacks = all.filter((c) => !skip.has(c.name));
+  const callbacks = all.filter((c) => !skip.has(c.name.toLowerCase()));
+  if (options.appendOnly && !callbacks.length) return "";
   if (!callbacks.length && all.length) {
     return `' 연결된 매크로는 모두 이 파일의 VBA에 이미 있습니다.\r\n' 새로 붙여 넣을 코드가 없습니다.\r\n`;
   }
@@ -178,7 +185,13 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: Ge
     list.push(c);
     owners.set(c.name, list);
   }
-  const lines = [
+  const lines = options.appendOnly ? [
+    RULE,
+    "' Excel Ribbon Builder가 추가한 매크로 (기존 VBA 코드는 그대로 둡니다)",
+    RULE,
+    "Option Explicit",
+    "",
+  ] : [
     RULE,
     "' Excel Ribbon Builder 생성 코드 (새로 추가한 매크로만)",
     ...(options.embedded ? [] : ["' 사용법: Alt+F11 → 삽입 → 모듈 → 아래 전체를 붙여넣기"]),
@@ -197,7 +210,9 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: Ge
   // 이름순으로 정렬해 VBA 편집기에서 찾기 쉽게 한다.
   for (const [name, kind] of [...first].sort(([a], [b]) => a.localeCompare(b, "en"))) {
     lines.push(`Sub ${name}(${SIG[kind]})`);
-    if (kind !== "onload" && bodies.has(name)) {
+    if (kind === "onload" && options.appendOnly) {
+      lines.push("    ' TODO: 필요하면 ribbon 개체를 모듈 변수에 저장하세요");
+    } else if (kind !== "onload" && bodies.has(name)) {
       for (const row of bodies.get(name)!.split(/\r?\n/)) lines.push(row ? `    ${row}` : "");
     } else {
       lines.push(...stubBody(name, kind, owners.get(name) ?? []));
@@ -205,6 +220,7 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: Ge
     lines.push("End Sub");
     lines.push("");
   }
+  if (options.appendOnly) return lines.join("\r\n");
   if (doc.settings?.onLoad) {
     lines.push("Sub RefreshRibbon()");
     lines.push("    If Not MyRibbon Is Nothing Then MyRibbon.Invalidate");
@@ -221,6 +237,11 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: Ge
     lines.push("");
   }
   return lines.join("\r\n");
+}
+
+/** 화면에 보여 줄 VBA: 기존 VBA가 있는 파일이면 실제로 더해질 코드만 보여 준다. */
+export function panelVba(doc: RibbonDoc, macros: MacroDef[], hasExistingVba: boolean): string {
+  return (hasExistingVba && generateVba(doc, macros, { appendOnly: true })) || generateVba(doc, macros);
 }
 
 export { SIG };

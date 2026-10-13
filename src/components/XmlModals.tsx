@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { validateDoc } from "@/model/validate";
 import { generateCustomUi, prettyXml } from "@/xml/generate";
-import { generateVba } from "@/vba/generate";
+import { panelVba } from "@/vba/generate";
 import { parseErrorLocation } from "@/xml/parse";
 import { previewXml } from "@/xml/merge";
 import { useEditorStore } from "@/store/useEditorStore";
@@ -90,12 +90,13 @@ export function XmlExportModal({ onClose, onGoto }: { onClose: () => void; onGot
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
   const images = useEditorStore((s) => s.images);
+  const hasExistingVba = useEditorStore((s) => s.hasExistingVba);
   const [tab, setTab] = useState<"xml" | "vba">("xml");
   const [ns, setNs] = useState<"2009" | "2006">("2009");
   const [pretty, setPretty] = useState(true);
   const [comments, setComments] = useState(false);
   const xml = generateCustomUi(ribbon, { ns, pretty, comments });
-  const vba = generateVba(ribbon, macros);
+  const vba = panelVba(ribbon, macros, hasExistingVba);
   const issues = validateDoc(ribbon, new Set(images.map((i) => i.id)), macros);
   const text = tab === "xml" ? xml : vba;
 
@@ -165,24 +166,37 @@ export function CodeView({ text, highlight }: { text: string; highlight?: string
 }
 
 export function SavedModal({
-  fileName, includeVba, hasCallback, onClose,
+  fileName, includeVba, hasCallback, appendedModule, onClose,
 }: {
   fileName: string;
   includeVba: boolean;
   hasCallback: boolean;
+  appendedModule?: string;
   onClose: () => void;
 }) {
   return (
     <Backdrop onClose={onClose}>
       <h3 className="mb-2 text-lg font-bold">저장했습니다</h3>
       <p className="mb-2 text-sm">파일 이름: <b>{fileName}</b></p>
-      {includeVba ? (
+      {appendedModule ? (
+        <p className="mb-2 text-sm">기존 VBA 코드는 그대로 두고, 새 매크로를 <b>{appendedModule}</b> 모듈에 넣었습니다.</p>
+      ) : null}
+      {includeVba && /\.xlam$/i.test(fileName) ? (
+        <ol className="list-decimal space-y-1 pl-5 text-sm">
+          {/* 추가 기능은 노란 막대가 없어, 차단된 채로 조용히 실행되지 않는다. */}
+          <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인.</li>
+          <li>파일을 추가 기능 폴더(탐색기 주소창에 <b>%APPDATA%\Microsoft\AddIns</b>)로 옮깁니다.</li>
+          <li>엑셀 → <b>개발 도구 → Excel 추가 기능</b>에서 이 파일을 체크합니다. (예전 버전이 있으면 먼저 체크 해제)</li>
+          <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
+          <li>Alt+F11 → <b>{appendedModule ?? "RibbonCallbacks"}</b> 모듈의 TODO 자리에 실제 코드를 채우고, VBA 편집기에서 Ctrl+S로 저장합니다.</li>
+        </ol>
+      ) : includeVba ? (
         <ol className="list-decimal space-y-1 pl-5 text-sm">
           {/* 인터넷에서 받은 파일은 Windows가 매크로를 막는다 ("보안 위험" 막대). */}
           <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인.</li>
           <li>엑셀에서 열고, 노란 막대가 나오면 <b>콘텐츠 사용</b>을 누릅니다.</li>
           <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
-          <li>Alt+F11 → <b>RibbonCallbacks</b> 모듈의 TODO 자리에 실제 코드를 채웁니다.</li>
+          <li>Alt+F11 → <b>{appendedModule ?? "RibbonCallbacks"}</b> 모듈의 TODO 자리에 실제 코드를 채웁니다.</li>
         </ol>
       ) : (
         <ol className="list-decimal space-y-1 pl-5 text-sm">

@@ -56,7 +56,7 @@ function decoderLabel(codePage: number): string {
   }
 }
 
-function decodeText(bytes: Uint8Array, codePage: number): string {
+export function decodeText(bytes: Uint8Array, codePage: number): string {
   try {
     return new TextDecoder(decoderLabel(codePage)).decode(bytes);
   } catch {

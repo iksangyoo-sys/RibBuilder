@@ -126,4 +126,26 @@ describe("generateVba", () => {
     ]).map((m) => m.name);
     expect(kept).toEqual(["btn_InUse", "btn_InFile", "btn_Registered", "btn_HasCode"]);
   });
+
+  it("appendOnly는 파일에 없는 매크로의 Sub만 만든다", () => {
+    const issuer = new IdIssuer();
+    const tab = createCustomTab(issuer, 1);
+    const g = createGroup(issuer);
+    const a = createControl(issuer, "button");
+    const b = createControl(issuer, "button");
+    if (a.type !== "button" || b.type !== "button") throw new Error("type");
+    a.onAction = "btn_OpenChatGPT";
+    a.imageId = "img_x";
+    b.onAction = "btn_prompt";
+    g.controls.push(a, b);
+    tab.groups.push(g);
+    const doc = { tabs: [tab] };
+    // 대소문자가 달라도 같은 매크로로 본다.
+    const vba = generateVba(doc, [{ name: "BTN_OPENCHATGPT", source: "file" }], { embedded: true, appendOnly: true });
+    expect(vba).toContain("Sub btn_prompt(control As IRibbonControl)");
+    expect(vba).not.toContain("btn_OpenChatGPT");
+    expect(vba).not.toContain("MyRibbon");
+    expect(vba).not.toContain("LoadImage");
+    expect(generateVba(doc, [{ name: "btn_OpenChatGPT", source: "file" }, { name: "btn_prompt", source: "file" }], { appendOnly: true })).toBe("");
+  });
 });
