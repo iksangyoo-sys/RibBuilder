@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createControl, createCustomTab, createGroup } from "@/model/factory";
 import { IdIssuer } from "@/model/ids";
-import { generateVba } from "./generate";
+import { generateVba, signatureClash, signatureConflicts } from "./generate";
+import { validateDoc } from "@/model/validate";
 
 describe("generateVba", () => {
   it("컨트롤 종류별 서명을 구분한다", () => {
@@ -51,5 +52,33 @@ describe("generateVba", () => {
     const vba = generateVba({ tabs: [tab] }, [{ name: "btn_메일발송", source: "file" }]);
     expect(vba).toContain("이미 있습니다");
     expect(vba).not.toContain("Sub btn_메일발송");
+  });
+
+  it("버튼과 드롭다운이 같은 매크로를 쓰면 충돌로 잡고 저장 전 확인에서 오류로 막는다", () => {
+    const issuer = new IdIssuer();
+    const tab = createCustomTab(issuer, 1);
+    const g = createGroup(issuer);
+    const btn = createControl(issuer, "button");
+    const dd = createControl(issuer, "dropDown");
+    const tgl = createControl(issuer, "toggleButton");
+    if (btn.type !== "button" || dd.type !== "dropDown" || tgl.type !== "toggleButton") throw new Error("type");
+    btn.label = "ChatGPT바로가기";
+    btn.onAction = "btn_OpenChatGPT";
+    dd.label = "폴더바로가기";
+    dd.onAction = "btn_OpenChatGPT";
+    // getPressed와 getSelectedItemID는 서명이 같아 함께 써도 된다.
+    tgl.getPressed = "get_Init";
+    dd.getSelectedItemID = "get_Init";
+    g.controls.push(btn, dd, tgl);
+    tab.groups.push(g);
+    const doc = { tabs: [tab] };
+
+    expect(signatureConflicts(doc).map((c) => c.name)).toEqual(["btn_OpenChatGPT"]);
+    expect(signatureClash(doc, "btn_OpenChatGPT", "dropdown", dd.uid, "onAction")?.label).toBe("ChatGPT바로가기");
+    expect(signatureClash(doc, "get_Init", "selitem", dd.uid, "getSelectedItemID")).toBeUndefined();
+
+    const errors = validateDoc(doc, new Set()).filter((i) => i.level === "error");
+    expect(errors.some((i) => i.message.includes("btn_OpenChatGPT") && i.message.includes("드롭다운 선택"))).toBe(true);
+    expect(errors.some((i) => i.message.includes("get_Init"))).toBe(false);
   });
 });

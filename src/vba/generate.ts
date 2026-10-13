@@ -17,17 +17,19 @@ export interface CallbackRef {
   uid: string;
   label?: string;
   controlId?: string;
+  /** 매크로가 연결된 속성 이름 (onAction, getText …). */
+  key?: string;
   /** 드롭다운 항목 — 콜백 코드에 항목 id를 넣는 데 쓴다. */
   items?: ListItem[];
 }
 
-function push(list: CallbackRef[], name: string, kind: CallbackKind, uid: string, label?: string, controlId?: string): void {
-  if (name) list.push({ name, kind, uid, label, controlId });
+function push(list: CallbackRef[], name: string, kind: CallbackKind, uid: string, label?: string, controlId?: string, key?: string): void {
+  if (name) list.push({ name, kind, uid, label, controlId, key });
 }
 
 export function collectCallbacks(doc: RibbonDoc): CallbackRef[] {
   const list: CallbackRef[] = [];
-  if (doc.settings?.onLoad) push(list, doc.settings.onLoad, "onload", "settings");
+  if (doc.settings?.onLoad) push(list, doc.settings.onLoad, "onload", "settings", undefined, undefined, "onLoad");
   walkControls(doc, (c) => addControlCallbacks(c, list));
   return list;
 }
@@ -36,28 +38,68 @@ function addControlCallbacks(c: Control, list: CallbackRef[]): void {
   const label = c.type === "splitButton" ? c.button.label : c.label;
   switch (c.type) {
     case "button":
-      push(list, c.onAction, "button", c.uid, label, c.id);
+      push(list, c.onAction, "button", c.uid, label, c.id, "onAction");
       break;
     case "toggleButton":
     case "checkBox":
-      push(list, c.onAction, "pressed", c.uid, label, c.id);
-      push(list, c.getPressed, "getval", c.uid, label, c.id);
+      push(list, c.onAction, "pressed", c.uid, label, c.id, "onAction");
+      push(list, c.getPressed, "getval", c.uid, label, c.id, "getPressed");
       break;
     case "editBox":
     case "comboBox":
-      push(list, c.onChange, "text", c.uid, label, c.id);
-      push(list, c.getText, "getval", c.uid, label, c.id);
+      push(list, c.onChange, "text", c.uid, label, c.id, "onChange");
+      push(list, c.getText, "getval", c.uid, label, c.id, "getText");
       break;
     case "dropDown": {
       const from = list.length;
-      push(list, c.onAction, "dropdown", c.uid, label, c.id);
-      push(list, c.getSelectedItemID, "selitem", c.uid, label, c.id);
+      push(list, c.onAction, "dropdown", c.uid, label, c.id, "onAction");
+      push(list, c.getSelectedItemID, "selitem", c.uid, label, c.id, "getSelectedItemID");
       for (let i = from; i < list.length; i++) list[i].items = c.items;
       break;
     }
     default:
       break;
   }
+}
+
+/** 콜백 칸(컨트롤 종류 + 속성 이름)이 요구하는 VBA 서명 종류. */
+export function fieldKind(controlType: string, key: string): CallbackKind {
+  if (key === "getPressed" || key === "getText") return "getval";
+  if (key === "getSelectedItemID") return "selitem";
+  if (key === "onLoad") return "onload";
+  if (controlType === "toggleButton" || controlType === "checkBox") return "pressed";
+  if (controlType === "editBox" || controlType === "comboBox") return "text";
+  if (controlType === "dropDown") return "dropdown";
+  return "button";
+}
+
+export const KIND_NAME: Record<CallbackKind, string> = {
+  button: "버튼 클릭",
+  pressed: "눌림·체크 변경",
+  text: "값 입력",
+  dropdown: "드롭다운 선택",
+  getval: "초기값",
+  selitem: "초기 선택 항목",
+  onload: "리본 로드",
+};
+
+export function sameSignature(a: CallbackKind, b: CallbackKind): boolean {
+  return SIG[a] === SIG[b];
+}
+
+/**
+ * name을 (uid, key) 칸에 연결하면 서명이 어긋나는 다른 사용처를 돌려준다.
+ * 하나의 Sub는 서명이 하나뿐이라, 예를 들어 버튼과 드롭다운이 같은 매크로를 쓰면 한쪽은 엑셀에서 실행되지 않는다.
+ */
+export function signatureClash(doc: RibbonDoc, name: string, kind: CallbackKind, uid: string, key: string): CallbackRef | undefined {
+  return collectCallbacks(doc).find((r) => r.name === name && !(r.uid === uid && r.key === key) && !sameSignature(r.kind, kind));
+}
+
+/** 서로 다른 서명으로 함께 쓰인 매크로 목록. */
+export function signatureConflicts(doc: RibbonDoc): { name: string; refs: CallbackRef[] }[] {
+  const byName = new Map<string, CallbackRef[]>();
+  for (const r of collectCallbacks(doc)) byName.set(r.name, [...(byName.get(r.name) ?? []), r]);
+  return [...byName].filter(([, refs]) => refs.some((r) => !sameSignature(r.kind, refs[0].kind))).map(([name, refs]) => ({ name, refs }));
 }
 
 export function generateVba(doc: RibbonDoc, macros: MacroDef[] = []): string {
@@ -76,7 +118,7 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = []): string {
   const conflicts: string[] = [];
   for (const c of callbacks) {
     if (!first.has(c.name)) first.set(c.name, c.kind);
-    else if (first.get(c.name) !== c.kind) conflicts.push(c.name);
+    else if (!sameSignature(first.get(c.name)!, c.kind)) conflicts.push(c.name);
     const list = owners.get(c.name) ?? [];
     list.push(c);
     owners.set(c.name, list);

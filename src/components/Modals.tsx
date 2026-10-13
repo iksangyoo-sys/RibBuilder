@@ -5,6 +5,7 @@ import { PREFIX } from "@/model/ids";
 import { findControl } from "@/model/walk";
 import type { Control } from "@/model/types";
 import { vbaNameError } from "@/vba/names";
+import { KIND_NAME, SIG, fieldKind, signatureClash } from "@/vba/generate";
 import { useEditorStore } from "@/store/useEditorStore";
 
 export function HelpModal({ onClose }: { onClose: () => void }) {
@@ -189,13 +190,16 @@ export function MacroManager({ onClose, onCreate }: { onClose: () => void; onCre
 
 /** target: 이 창을 연 콜백 칸(onAction, getPressed …). 만든 매크로를 그 칸에 바로 연결한다. */
 export function NewMacroModal({ onClose, target }: { onClose: () => void; target?: string }) {
-  const [name, setName] = useState("btn_실행");
-  const [err, setErr] = useState("");
-  const addMacro = useEditorStore((s) => s.addMacro);
   const selection = useEditorStore((s) => s.selection);
   const ribbon = useEditorStore((s) => s.ribbon);
+  const macros = useEditorStore((s) => s.macros);
   const found = selection.kind === "control" ? ribbon.tabs.flatMap((t) => t.groups).flatMap((g) => g.kind === "custom" ? g.controls : []).find((c) => c.uid === selection.uid) : undefined;
-  const sig = signaturePreview(found?.type, target);
+  const key = target ?? "onAction";
+  const kind = fieldKind(found?.type ?? "button", key);
+  const [name, setName] = useState(() => suggestMacroName(found?.type, key, macros.map((m) => m.name)));
+  const [err, setErr] = useState("");
+  const addMacro = useEditorStore((s) => s.addMacro);
+  const sig = SIG[kind];
   return (
     <Backdrop onClose={onClose}>
       <h3 className="mb-2 text-lg font-bold">새 매크로 만들기</h3>
@@ -210,6 +214,12 @@ export function NewMacroModal({ onClose, target }: { onClose: () => void; target
         <button type="button" className="rounded bg-pine px-3 py-1 text-white" onClick={() => {
           const msg = vbaNameError(name.trim());
           if (msg) { setErr(msg); return; }
+          const ownerUid = found?.type === "splitButton" ? found.button.uid : found?.uid ?? "";
+          const clash = signatureClash(ribbon, name.trim(), kind, ownerUid, key);
+          if (clash) {
+            setErr(`"${name.trim()}"는 ${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}에 이미 쓰고 있어 형식이 맞지 않습니다. 다른 이름을 쓰세요.`);
+            return;
+          }
           addMacro({ name: name.trim(), source: "builder" });
           if (found && target) {
             const patch = useEditorStore.getState().patchControl;
@@ -226,12 +236,13 @@ export function NewMacroModal({ onClose, target }: { onClose: () => void; target
   );
 }
 
-function signaturePreview(type?: string, target?: string): string {
-  if (target?.startsWith("get")) return "control As IRibbonControl, ByRef returnedVal";
-  if (type === "toggleButton" || type === "checkBox") return "control As IRibbonControl, pressed As Boolean";
-  if (type === "editBox" || type === "comboBox") return "control As IRibbonControl, text As String";
-  if (type === "dropDown") return "control As IRibbonControl, id As String, index As Integer";
-  return "control As IRibbonControl";
+/** 컨트롤 종류에 맞는 접두어로, 아직 없는 매크로 이름을 제안한다 (예: 드롭다운 → dd_실행). */
+function suggestMacroName(type: string | undefined, key: string, taken: string[]): string {
+  const prefix = !type || type === "splitButton" ? "btn" : PREFIX[type] ?? "btn";
+  const base = `${prefix}_${key.startsWith("get") ? "초기값" : "실행"}`;
+  let name = base;
+  for (let n = 2; taken.includes(name); n++) name = `${base}${n}`;
+  return name;
 }
 
 export function ConfirmModal({ message, onYes, onNo }: { message: string; onYes: () => void; onNo: () => void }) {

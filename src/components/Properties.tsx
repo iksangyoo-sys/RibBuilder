@@ -6,6 +6,7 @@ import { allXmlIds } from "@/model/walk";
 import { isXmlId } from "@/model/ids";
 import { createButton, createItem, issuerFromRibbon } from "@/model/factory";
 import { useEditorStore } from "@/store/useEditorStore";
+import { KIND_NAME, fieldKind, signatureClash } from "@/vba/generate";
 import { useState } from "react";
 
 type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void };
@@ -238,6 +239,9 @@ function MacroField({
     fields.push({ key: "onAction", label: "주 버튼 매크로", value: control.button.onAction });
   }
   if (!fields.length) return <p className="text-sm text-mute">이 컨트롤은 콜백이 없습니다.</p>;
+  const ribbon = useEditorStore.getState().ribbon;
+  // 분할버튼의 매크로는 안쪽 주 버튼에 붙는다.
+  const ownerUid = control.type === "splitButton" ? control.button.uid : control.uid;
   return (
     <>
       {fields.map((f) => (
@@ -250,7 +254,15 @@ function MacroField({
             } else onChange(f.key, e.target.value);
           }}>
             <option value="">— 선택 안 함 —</option>
-            {macros.map((m) => <option key={m.name} value={m.name}>{m.name}</option>)}
+            {macros.map((m) => {
+              // 형식(서명)이 다른 콜백에 이미 쓰인 매크로는 고를 수 없게 한다.
+              const clash = m.name === f.value ? undefined : signatureClash(ribbon, m.name, fieldKind(control.type, f.key), ownerUid, f.key);
+              return (
+                <option key={m.name} value={m.name} disabled={Boolean(clash)}>
+                  {clash ? `${m.name} — ${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}용이라 쓸 수 없음` : m.name}
+                </option>
+              );
+            })}
             {f.value && !macros.some((m) => m.name === f.value) ? <option value={f.value}>{f.value}</option> : null}
             <option value="__new__">➕ 새 매크로 만들기…</option>
           </select>
