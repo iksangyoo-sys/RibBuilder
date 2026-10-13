@@ -6,7 +6,7 @@ import { generateCustomUi } from "@/xml/generate";
 import { openWorkbook } from "./read";
 import { buildWorkbookBlob } from "./write";
 import { BLANK_XLSX_B64 } from "./blank";
-import { UI_REL_2007 } from "./rels";
+import { UI_REL_2007, imageRelsXml } from "./rels";
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -101,5 +101,10 @@ describe("workbook package", () => {
     const zip = await JSZip.loadAsync(await again.arrayBuffer());
     const rels = await zip.file("_rels/.rels")!.async("string");
     expect(rels.match(/ui\/extensibility/g)?.length).toBe(1);
+  });
+
+  it("리본 이미지는 표준 이미지 관계 형식으로 연결한다", () => {
+    const rels = imageRelsXml([{ id: "img_chatgpt", ext: "png" }]);
+    expect(rels).toContain('Id="img_chatgpt" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="images/img_chatgpt.png"');
   });
 });

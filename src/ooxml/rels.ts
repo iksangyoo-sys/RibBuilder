@@ -1,7 +1,8 @@
 const RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships";
 export const UI_REL_2007 = "http://schemas.microsoft.com/office/2007/relationships/ui/extensibility";
 export const UI_REL_2006 = "http://schemas.microsoft.com/office/2006/relationships/ui/extensibility";
-export const IMAGE_REL = "http://schemas.microsoft.com/office/2007/relationships/image";
+// 리본 이미지는 표준 이미지 관계 형식이어야 엑셀이 찾는다 (office/2007/... 형식은 무시되어 아이콘이 안 보인다).
+export const IMAGE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
 export const VBA_REL = "http://schemas.microsoft.com/office/2006/relationships/vbaProject";
 
 export function parseRelationships(xml: string): { id: string; type: string; target: string }[] {
