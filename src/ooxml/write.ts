@@ -3,6 +3,10 @@ import { generateCustomUi } from "@/xml/generate";
 import type { OriginKind, RibbonDoc, RibbonImage } from "@/model/types";
 import {
   ensurePngDefault,
+  ensureWorkbookCodeName,
+  setSheetCodeName,
+  sheetCodeName,
+  worksheetParts,
   imageRelsXml,
   setMacroEnabledWorkbook,
   upsertCustomUiOverride,
@@ -10,8 +14,9 @@ import {
   upsertVbaOverride,
   upsertVbaRelationship,
 } from "./rels";
+import type { VbaHost } from "@/ovba/embed";
 import { BLANK_XLSX_B64 } from "./blank";
-import { buildVbaProject, canEmbedIntoExisting, hasVbaTemplate } from "@/ovba/embed";
+import { buildVbaProject, canEmbedIntoExisting } from "@/ovba/embed";
 
 export interface SaveOptions {
   originBytes: Uint8Array | null;
@@ -42,7 +47,8 @@ export function downloadName(opts: SaveOptions): string {
   const base = (m?.[1] || "새 통합문서").replace(/_ribbon$/i, "");
   let ext = m?.[2] || ".xlsx";
   if (opts.includeVba) ext = ".xlsm";
-  return `${base}_ribbon${ext}`;
+  // 새로 만든 통합 문서는 "새 통합문서.xlsm"처럼 그대로, 불러온 파일은 원본과 구분되게 _ribbon을 붙인다.
+  return opts.originKind === "blank" ? `${base}${ext}` : `${base}_ribbon${ext}`;
 }
 
 export function mimeOfSave(opts: SaveOptions): string {
@@ -51,6 +57,32 @@ export function mimeOfSave(opts: SaveOptions): string {
   if (name.endsWith(".xlsb")) return "application/vnd.ms-excel.sheet.binary.macroEnabled.12";
   if (name.endsWith(".xlam")) return "application/vnd.ms-excel.addin.macroEnabled.12";
   return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+}
+
+/** VBA 문서 모듈과 짝이 되도록 통합 문서·워크시트에 codeName을 붙인다. */
+async function assignCodeNames(zip: JSZip): Promise<VbaHost> {
+  const read = async (path: string) => (await zip.file(path)?.async("string")) ?? null;
+  const wbXml = await read("xl/workbook.xml");
+  if (!wbXml) return { book: "ThisWorkbook", sheets: [] };
+  const wb = ensureWorkbookCodeName(wbXml);
+  zip.file("xl/workbook.xml", wb.xml);
+  const used = new Set([wb.codeName]);
+  const sheets: string[] = [];
+  let n = 1;
+  for (const part of worksheetParts(wb.xml, (await read("xl/_rels/workbook.xml.rels")) ?? "")) {
+    let xml = await read(part);
+    if (!xml) continue;
+    let name = sheetCodeName(xml);
+    if (!name || used.has(name)) {
+      while (used.has(`Sheet${n}`)) n += 1;
+      name = `Sheet${n}`;
+      xml = setSheetCodeName(xml, name);
+      zip.file(part, xml);
+    }
+    used.add(name);
+    sheets.push(name);
+  }
+  return { book: wb.codeName, sheets };
 }
 
 export async function buildWorkbookBlob(opts: SaveOptions): Promise<Blob> {
@@ -95,8 +127,9 @@ export async function buildWorkbookBlob(opts: SaveOptions): Promise<Blob> {
       if (canEmbedIntoExisting()) {
         /* 2단계는 안정화 전이라 기존 바이너리를 그대로 둡니다. */
       }
-    } else if (hasVbaTemplate()) {
-      out.file("xl/vbaProject.bin", buildVbaProject(opts.vbaSource), { compression: "STORE" });
+    } else {
+      const host = await assignCodeNames(out);
+      out.file("xl/vbaProject.bin", buildVbaProject(opts.vbaSource, host), { compression: "STORE" });
     }
   }
 

@@ -1,6 +1,7 @@
 import { KNOWN_IDMSO } from "@/constants/idMso";
 import { isXmlId } from "./ids";
 import { walkControls, walkGroups, walkTabs } from "./walk";
+import { collectCallbacks } from "@/vba/generate";
 import type { Issue, RibbonDoc } from "./types";
 
 function needsMacro(type: string): boolean {
@@ -93,6 +94,8 @@ export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { nam
     }
   });
 
+  // getPressed·getText·getSelectedItemID·onLoad 같은 콜백에 연결된 매크로도 사용 중으로 본다.
+  for (const cb of collectCallbacks(doc)) usedMacros.add(cb.name);
   for (const m of macros) {
     if (!usedMacros.has(m.name)) issues.push({ level: "warn", uid: "", message: `사용하지 않는 매크로 "${m.name}" 입니다.` });
   }

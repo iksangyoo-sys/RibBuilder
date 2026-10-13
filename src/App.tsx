@@ -29,7 +29,6 @@ import { SavedModal, XmlExportModal, XmlImportModal } from "./components/XmlModa
 import { findControl, findGroup } from "./model/walk";
 import { validateDoc } from "./model/validate";
 import { buildWorkbookBlob, downloadName } from "./ooxml/write";
-import { hasVbaTemplate } from "./ovba/embed";
 import { useEditorStore } from "./store/useEditorStore";
 import { generateVba } from "./vba/generate";
 import { collectCallbacks } from "./vba/generate";
@@ -40,7 +39,7 @@ export function App() {
   const [menu, setMenu] = useState<MenuState>(null);
   const [renaming, setRenaming] = useState<{ kind: "tab" | "group"; uid: string } | null>(null);
   const [help, setHelp] = useState(false);
-  const [newMacro, setNewMacro] = useState(false);
+  const [newMacro, setNewMacro] = useState<{ key: string } | null>(null);
   const [icon, setIcon] = useState(false);
   const [xmlIn, setXmlIn] = useState(false);
   const [xmlOut, setXmlOut] = useState(false);
@@ -188,22 +187,26 @@ export function App() {
       fileName: s.fileName,
       doc: s.ribbon,
       images: s.images,
-      includeVba: s.includeVba && hasVbaTemplate() && !s.hasExistingVba,
+      // 연결된 콜백이 없으면 매크로 없는 .xlsx로 저장한다.
+      includeVba: s.includeVba && !s.hasExistingVba && collectCallbacks(s.ribbon).length > 0,
       vbaSource: generateVba(s.ribbon, s.macros),
       hasExistingVba: s.hasExistingVba,
     };
     if (s.includeVba && s.hasExistingVba) {
       setNotice("기존 VBA가 있어 코드 복사 방식만 지원합니다. VBA 패널의 코드를 모듈에 붙여 넣으세요.");
-    } else if (s.includeVba && !hasVbaTemplate()) {
-      setNotice("빈 모듈 템플릿이 없어 파일에 VBA를 넣지 못했습니다. 코드를 복사해 붙여 넣으세요.");
     }
     const blob = await buildWorkbookBlob(opts);
     const name = downloadName({ ...opts, includeVba: opts.includeVba });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = name;
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
     s.markSaved();
     setSaved({ name, includeVba: opts.includeVba, hasCallback: collectCallbacks(s.ribbon).length > 0 });
   }, []);
@@ -260,7 +263,7 @@ export function App() {
           <Properties
             onDelete={requestDelete}
             onIcon={() => setIcon(true)}
-            onNewMacro={() => setNewMacro(true)}
+            onNewMacro={(key) => setNewMacro({ key })}
           />
         </div>
         <DragOverlay />
@@ -292,7 +295,7 @@ export function App() {
         }}
       />
       {help ? <HelpModal onClose={() => setHelp(false)} /> : null}
-      {newMacro ? <NewMacroModal onClose={() => setNewMacro(false)} /> : null}
+      {newMacro ? <NewMacroModal target={newMacro.key} onClose={() => setNewMacro(null)} /> : null}
       {xmlIn ? <XmlImportModal onClose={() => setXmlIn(false)} /> : null}
       {xmlOut ? <XmlExportModal onClose={() => setXmlOut(false)} onGoto={(uid) => {
         const s = useEditorStore.getState();

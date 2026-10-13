@@ -57,7 +57,7 @@ export function createControl(issuer: IdIssuer, type: ControlType): Control {
     case "comboBox":
       return { ...base(issuer, type, label), type, items: [createItem(issuer, "항목 1")], sizeString: "", maxLength: "", onChange: "", getText: "" };
     case "dropDown":
-      return { ...base(issuer, type, label), type, items: [createItem(issuer, "항목 1")], onAction: "" };
+      return { ...base(issuer, type, label), type, items: [createItem(issuer, "항목 1")], onAction: "", getSelectedItemID: "" };
     case "menu":
       return { ...base(issuer, type, label), type, items: [] };
     case "splitButton": {

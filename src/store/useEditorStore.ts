@@ -117,7 +117,7 @@ function nextTabIndex(tabs: Tab[]): number {
 function replaceMacro(doc: RibbonDoc, oldName: string, newName: string): void {
   const visit = (c: Control) => {
     const rec = c as unknown as Record<string, unknown>;
-    for (const key of ["onAction", "onChange", "getPressed"]) {
+    for (const key of ["onAction", "onChange", "getPressed", "getText", "getSelectedItemID"]) {
       if (rec[key] === oldName) rec[key] = newName;
     }
     if (c.type === "menu" || c.type === "splitButton") c.items.forEach(visit);
@@ -154,7 +154,7 @@ function blankSession(): Pick<
     originKind: "blank",
     originBytes: blankBytes(),
     hasExistingVba: false,
-    includeVba: false,
+    includeVba: true,
     dirty: false,
     ribbon: emptyRibbon(),
     images: [],
@@ -176,7 +176,7 @@ function sessionFromDraft() {
     originKind: draft.originKind,
     originBytes: draft.originBytesB64 ? b64ToBytes(draft.originBytesB64) : blankBytes(),
     hasExistingVba: draft.hasExistingVba,
-    includeVba: draft.includeVba,
+    includeVba: draft.vbaPref === 2 ? draft.includeVba : !draft.hasExistingVba,
     dirty: true,
     ribbon: ensureBuiltinTabs(draft.ribbon),
     images: draft.images,
@@ -265,7 +265,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         originKind: "blank" as const,
         originBytes: blankBytes(),
         hasExistingVba: false,
-        includeVba: false,
+        includeVba: true,
         dirty: true,
         ribbon,
         images: [],
@@ -290,7 +290,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         originKind: draft.originKind,
         originBytes: draft.originBytesB64 ? b64ToBytes(draft.originBytesB64) : blankBytes(),
         hasExistingVba: draft.hasExistingVba,
-        includeVba: draft.includeVba,
+        includeVba: draft.vbaPref === 2 ? draft.includeVba : !draft.hasExistingVba,
         dirty: true,
         ribbon: ensureBuiltinTabs(draft.ribbon),
         images: draft.images,
@@ -315,7 +315,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         originKind: opened.kind,
         originBytes: opened.bytes,
         hasExistingVba: opened.hasVba,
-        includeVba: false,
+        includeVba: !opened.hasVba,
         dirty: false,
         ribbon,
         images: opened.images,

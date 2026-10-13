@@ -66,7 +66,7 @@ export function controlXml(c: Control): string {
     case "comboBox":
       return `<comboBox${commonAttrs(c, false)}${attr("sizeString", c.sizeString)}${attr("maxLength", c.maxLength)}${attr("onChange", c.onChange)}${attr("getText", c.getText)}>${itemsXml(c.items)}</comboBox>`;
     case "dropDown":
-      return `<dropDown${commonAttrs(c, false)}${attr("onAction", c.onAction)}>${itemsXml(c.items)}</dropDown>`;
+      return `<dropDown${commonAttrs(c, false)}${attr("onAction", c.onAction)}${attr("getSelectedItemID", c.getSelectedItemID)}>${itemsXml(c.items)}</dropDown>`;
     case "menu":
       return `<menu${commonAttrs(c, true)}>${c.items.map((b) => buttonXml(b, false)).join("")}</menu>`;
     case "splitButton":

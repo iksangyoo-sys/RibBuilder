@@ -1,5 +1,5 @@
 import { IdIssuer, PREFIX } from "./ids";
-import { allXmlIds } from "./walk";
+import { allUids, allXmlIds } from "./walk";
 import type { ButtonControl, Control, Group, ListItem, RibbonDoc, Tab } from "./types";
 
 function cloneButton(src: ButtonControl, issuer: IdIssuer): ButtonControl {
@@ -91,7 +91,7 @@ export function deepCloneWithNewIds(tab: Tab, existingIds: Iterable<string> = []
 export function cloneTabAfter(doc: RibbonDoc, tabUid: string): { doc: RibbonDoc; tab: Tab } {
   const index = doc.tabs.findIndex((t) => t.uid === tabUid);
   if (index < 0) throw new Error("탭을 찾을 수 없습니다.");
-  const cloned = deepCloneWithNewIds(doc.tabs[index], allXmlIds(doc));
+  const cloned = deepCloneWithNewIds(doc.tabs[index], [...allXmlIds(doc), ...allUids(doc)]);
   const tabs = [...doc.tabs];
   tabs.splice(index + 1, 0, cloned);
   return { doc: { ...doc, tabs }, tab: cloned };
@@ -101,7 +101,7 @@ export function cloneGroupAfter(doc: RibbonDoc, groupUid: string): { doc: Ribbon
   for (const tab of doc.tabs) {
     const index = tab.groups.findIndex((g) => g.uid === groupUid);
     if (index < 0) continue;
-    const issuer = new IdIssuer(allXmlIds(doc), 1);
+    const issuer = new IdIssuer([...allXmlIds(doc), ...allUids(doc)], 1);
     const cloned = cloneGroup(tab.groups[index], issuer);
     if (cloned.kind === "custom") cloned.label = `${tab.groups[index].kind === "custom" ? tab.groups[index].label : cloned.label} 복사`;
     const groups = [...tab.groups];

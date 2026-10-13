@@ -3,6 +3,7 @@ import { IMAGE_MSO } from "@/constants/imageMso";
 import { PRESET_ICONS, urlToDataUrl } from "@/constants/presetIcons";
 import { PREFIX } from "@/model/ids";
 import { findControl } from "@/model/walk";
+import type { Control } from "@/model/types";
 import { vbaNameError } from "@/vba/names";
 import { useEditorStore } from "@/store/useEditorStore";
 
@@ -186,14 +187,15 @@ export function MacroManager({ onClose, onCreate }: { onClose: () => void; onCre
   );
 }
 
-export function NewMacroModal({ onClose }: { onClose: () => void }) {
+/** target: 이 창을 연 콜백 칸(onAction, getPressed …). 만든 매크로를 그 칸에 바로 연결한다. */
+export function NewMacroModal({ onClose, target }: { onClose: () => void; target?: string }) {
   const [name, setName] = useState("btn_실행");
   const [err, setErr] = useState("");
   const addMacro = useEditorStore((s) => s.addMacro);
   const selection = useEditorStore((s) => s.selection);
   const ribbon = useEditorStore((s) => s.ribbon);
   const found = selection.kind === "control" ? ribbon.tabs.flatMap((t) => t.groups).flatMap((g) => g.kind === "custom" ? g.controls : []).find((c) => c.uid === selection.uid) : undefined;
-  const sig = signaturePreview(found?.type);
+  const sig = signaturePreview(found?.type, target);
   return (
     <Backdrop onClose={onClose}>
       <h3 className="mb-2 text-lg font-bold">새 매크로 만들기</h3>
@@ -209,6 +211,14 @@ export function NewMacroModal({ onClose }: { onClose: () => void }) {
           const msg = vbaNameError(name.trim());
           if (msg) { setErr(msg); return; }
           addMacro({ name: name.trim(), source: "builder" });
+          if (found && target) {
+            const patch = useEditorStore.getState().patchControl;
+            if (found.type === "splitButton" && target === "onAction") {
+              patch(found.uid, { button: { ...found.button, onAction: name.trim() } } as Partial<Control>);
+            } else {
+              patch(found.uid, { [target]: name.trim() } as Partial<Control>);
+            }
+          }
           onClose();
         }}>추가</button>
       </div>
@@ -216,7 +226,8 @@ export function NewMacroModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function signaturePreview(type?: string): string {
+function signaturePreview(type?: string, target?: string): string {
+  if (target?.startsWith("get")) return "control As IRibbonControl, ByRef returnedVal";
   if (type === "toggleButton" || type === "checkBox") return "control As IRibbonControl, pressed As Boolean";
   if (type === "editBox" || type === "comboBox") return "control As IRibbonControl, text As String";
   if (type === "dropDown") return "control As IRibbonControl, id As String, index As Integer";

@@ -96,3 +96,44 @@ export function relsPathFor(part: string): string {
   const file = bits.pop()!;
   return [...bits, "_rels", `${file}.rels`].join("/");
 }
+
+const WORKSHEET_REL = /\/relationships\/worksheet$/;
+
+/** workbookPr codeName을 돌려준다. 없으면 ThisWorkbook으로 정해 넣는다 (fileVersion·fileSharing 뒤가 스키마 순서). */
+export function ensureWorkbookCodeName(workbookXml: string): { xml: string; codeName: string } {
+  const existing = /<workbookPr\b[^>]*\bcodeName="([^"]+)"/.exec(workbookXml)?.[1];
+  if (existing) return { xml: workbookXml, codeName: existing };
+  if (/<workbookPr\b/.test(workbookXml)) {
+    return { xml: workbookXml.replace(/<workbookPr\b/, '<workbookPr codeName="ThisWorkbook"'), codeName: "ThisWorkbook" };
+  }
+  const anchor = [
+    /<fileSharing\b[^>]*\/>|<fileSharing\b[\s\S]*?<\/fileSharing>/,
+    /<fileVersion\b[^>]*\/>/,
+    /<workbook\b[^>]*>/,
+  ].find((re) => re.test(workbookXml));
+  if (!anchor) return { xml: workbookXml, codeName: "ThisWorkbook" };
+  return { xml: workbookXml.replace(anchor, (m) => `${m}<workbookPr codeName="ThisWorkbook"/>`), codeName: "ThisWorkbook" };
+}
+
+export function sheetCodeName(sheetXml: string): string | undefined {
+  return /<sheetPr\b[^>]*\bcodeName="([^"]+)"/.exec(sheetXml)?.[1];
+}
+
+/** sheetPr codeName을 바꾸거나 넣는다. sheetPr은 worksheet의 첫 자식이다. */
+export function setSheetCodeName(sheetXml: string, codeName: string): string {
+  if (/<sheetPr\b[^>]*\bcodeName="/.test(sheetXml)) return sheetXml.replace(/(<sheetPr\b[^>]*\bcodeName=")[^"]*"/, `$1${codeName}"`);
+  if (/<sheetPr\b/.test(sheetXml)) return sheetXml.replace(/<sheetPr\b/, `<sheetPr codeName="${codeName}"`);
+  return sheetXml.replace(/(<worksheet\b[^>]*>)/, `$1<sheetPr codeName="${codeName}"/>`);
+}
+
+/** 통합 문서 순서대로 워크시트 파트 경로를 돌려준다. */
+export function worksheetParts(workbookXml: string, workbookRels: string): string[] {
+  const targets = new Map(parseRelationships(workbookRels).filter((r) => WORKSHEET_REL.test(r.type)).map((r) => [r.id, r.target]));
+  const parts: string[] = [];
+  for (const m of workbookXml.matchAll(/<sheet\b[^>]*>/g)) {
+    const rid = /\br:id="([^"]+)"/.exec(m[0])?.[1];
+    const target = rid ? targets.get(rid) : undefined;
+    if (target) parts.push(resolvePath("xl/workbook.xml", target));
+  }
+  return parts;
+}

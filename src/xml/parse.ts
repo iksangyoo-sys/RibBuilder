@@ -109,7 +109,7 @@ function parseControl(tag: string, kids: Ordered, attrs: Record<string, string>,
     case "comboBox":
       return { ...commonFrom(attrs, issuer, tag, "normal"), type: "comboBox", items: parseItems(kids, issuer), sizeString: a(attrs, "sizeString"), maxLength: a(attrs, "maxLength"), onChange: a(attrs, "onChange"), getText: a(attrs, "getText") };
     case "dropDown":
-      return { ...commonFrom(attrs, issuer, tag, "normal"), type: "dropDown", items: parseItems(kids, issuer), onAction: a(attrs, "onAction") };
+      return { ...commonFrom(attrs, issuer, tag, "normal"), type: "dropDown", items: parseItems(kids, issuer), onAction: a(attrs, "onAction"), getSelectedItemID: a(attrs, "getSelectedItemID") };
     case "menu":
       return {
         ...commonFrom(attrs, issuer, tag, "large"),

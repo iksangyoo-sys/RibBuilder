@@ -2,14 +2,13 @@ import { BUILTIN_TABS } from "@/constants/idMso";
 import { CONTROL_NAME } from "@/constants/controls";
 import type { Control, ListItem } from "@/model/types";
 import { findControl, findGroup, findTab } from "@/model/walk";
-import { IdIssuer } from "@/model/ids";
 import { allXmlIds } from "@/model/walk";
 import { isXmlId } from "@/model/ids";
-import { createButton, createItem } from "@/model/factory";
+import { createButton, createItem, issuerFromRibbon } from "@/model/factory";
 import { useEditorStore } from "@/store/useEditorStore";
 import { useState } from "react";
 
-type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: () => void };
+type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void };
 
 export function Properties({ onDelete, onIcon, onNewMacro }: Props) {
   const selection = useEditorStore((s) => s.selection);
@@ -96,7 +95,7 @@ function GroupProps({ uid }: { uid: string }) {
   );
 }
 
-function ControlProps({ uid, onIcon, onNewMacro }: { uid: string; onIcon: () => void; onNewMacro: () => void }) {
+function ControlProps({ uid, onIcon, onNewMacro }: { uid: string; onIcon: () => void; onNewMacro: (key: string) => void }) {
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
   const images = useEditorStore((s) => s.images);
@@ -178,18 +177,29 @@ function IdField({ value, onChange }: { value: string; onChange: (id: string) =>
   const [draft, setDraft] = useState(value);
   const ids = allXmlIds(useEditorStore.getState().ribbon);
   const err = !isXmlId(draft) ? "식별자 규칙에 맞지 않습니다." : (draft !== value && ids.includes(draft) ? "이미 있는 id입니다." : "");
+  // Field는 <label>이라, 다시 그려진 뒤 클릭이 새 [편집] 버튼으로 넘어가지 않게 preventDefault 한다.
+  const apply = () => { onChange(draft); setEdit(false); };
   return (
     <Field label="id" hint="VBA 매크로에서 이 이름을 참조합니다 (필요시에만 수정)">
       {edit ? (
         <div>
-          <input className="w-full rounded border border-line bg-white px-2 py-1.5" value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <input
+            className="w-full rounded border border-line bg-white px-2 py-1.5"
+            value={draft}
+            autoFocus
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); if (!err) apply(); }
+              if (e.key === "Escape") { e.preventDefault(); setEdit(false); }
+            }}
+          />
           {err ? <p className="text-xs text-clay">{err}</p> : null}
-          <button type="button" className="mt-1 text-sm underline" disabled={Boolean(err)} onClick={() => { onChange(draft); setEdit(false); }}>적용</button>
+          <button type="button" className="mt-1 text-sm underline" disabled={Boolean(err)} onClick={(e) => { e.preventDefault(); apply(); }}>적용</button>
         </div>
       ) : (
         <div className="flex items-center gap-2">
           <span className="flex-1 rounded border border-line bg-mist px-2 py-1.5 text-mute">{value}</span>
-          <button type="button" className="text-sm text-mute" onClick={() => { setDraft(value); setEdit(true); }}>편집</button>
+          <button type="button" className="text-sm text-mute" onClick={(e) => { e.preventDefault(); setDraft(value); setEdit(true); }}>편집</button>
         </div>
       )}
     </Field>
@@ -201,7 +211,7 @@ function MacroField({
 }: {
   control: Control;
   macros: { name: string }[];
-  onNew: () => void;
+  onNew: (key: string) => void;
   onChange: (key: string, value: string) => void;
 }) {
   const fields: { key: string; label: string; value: string }[] = [];
@@ -221,7 +231,8 @@ function MacroField({
     fields.push({ key: "getText", label: "getText — 리본이 그려질 때 초기 텍스트", value: control.getText ?? "" });
   }
   if (control.type === "dropDown") {
-    fields.push({ key: "onAction", label: "onAction — 항목을 선택했을 때 호출", value: control.onAction });
+    fields.push({ key: "onAction", label: "onAction — 항목을 선택했을 때 호출 (id/index 전달)", value: control.onAction });
+    fields.push({ key: "getSelectedItemID", label: "getSelectedItemID — 리본 로드 시 — 초기 선택 항목을 결정", value: control.getSelectedItemID ?? "" });
   }
   if (control.type === "splitButton") {
     fields.push({ key: "onAction", label: "주 버튼 매크로", value: control.button.onAction });
@@ -233,7 +244,7 @@ function MacroField({
         <label key={f.key} className="mb-3 block text-sm">
           <span className="mb-1 block font-semibold">{f.label}</span>
           <select className="w-full rounded border border-line bg-white px-2 py-1.5" value={f.value} onChange={(e) => {
-            if (e.target.value === "__new__") { onNew(); return; }
+            if (e.target.value === "__new__") { onNew(f.key); return; }
             if (control.type === "splitButton" && f.key === "onAction") {
               useEditorStore.getState().patchControl(control.uid, { button: { ...control.button, onAction: e.target.value } } as Partial<Control>);
             } else onChange(f.key, e.target.value);
@@ -261,7 +272,7 @@ function ItemEditor({ control }: { control: Extract<Control, { type: "comboBox" 
           className="grid h-7 w-7 place-items-center rounded-full border border-line text-lg leading-none"
           aria-label="항목 추가"
           onClick={() => {
-            const issuer = new IdIssuer(allXmlIds(useEditorStore.getState().ribbon));
+            const issuer = issuerFromRibbon(useEditorStore.getState().ribbon);
             setItems([...control.items, createItem(issuer, `항목 ${control.items.length + 1}`)]);
           }}
         >
@@ -300,7 +311,7 @@ function ChildEditor({ control }: { control: Extract<Control, { type: "menu" | "
         <button key={it.uid} type="button" className="mb-1 block underline" onClick={() => useEditorStore.getState().select({ kind: "control", uid: it.uid })}>{it.label || "(이름 없음)"}</button>
       ))}
       <button type="button" className="underline" onClick={() => {
-        const issuer = new IdIssuer(allXmlIds(useEditorStore.getState().ribbon));
+        const issuer = issuerFromRibbon(useEditorStore.getState().ribbon);
         const b = createButton(issuer, "하위 버튼");
         patch(control.uid, { items: [...control.items, b] } as Partial<Control>);
       }}>하위 버튼 추가</button>

@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CONTROL_DEFS } from "@/constants/controls";
 import type { Control, CustomGroup, Group, Tab } from "@/model/types";
 import { useEditorStore } from "@/store/useEditorStore";
@@ -299,17 +299,53 @@ function ControlChip({ control, large, onMenu }: { control: Control; large?: boo
   const def = CONTROL_DEFS.find((d) => d.type === control.type);
   const img = images.find((i) => i.id === control.imageId);
   const caption = control.type === "splitButton" ? control.button.label : control.label;
-  return (
+  const hasItems = control.type === "dropDown" || control.type === "comboBox" || control.type === "menu" || control.type === "splitButton";
+  const [popup, setPopup] = useState<{ x: number; y: number } | null>(null);
+  const chipRef = useRef<HTMLButtonElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const setRefs = useCallback((el: HTMLButtonElement | null) => {
+    setNodeRef(el);
+    chipRef.current = el;
+  }, [setNodeRef]);
+
+  useEffect(() => {
+    if (!popup) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!chipRef.current?.contains(t) && !popupRef.current?.contains(t)) setPopup(null);
+    };
+    const onScroll = () => setPopup(null);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, [popup]);
+
+  useEffect(() => {
+    if (!selected) setPopup(null);
+  }, [selected]);
+
+  const chip = (
     <button
-      ref={setNodeRef}
+      ref={setRefs}
       style={style}
       {...attributes}
       {...listeners}
       type="button"
-      onClick={(e) => { e.stopPropagation(); useEditorStore.getState().select({ kind: "control", uid: control.uid }); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        useEditorStore.getState().select({ kind: "control", uid: control.uid });
+        if (hasItems) {
+          const r = e.currentTarget.getBoundingClientRect();
+          setPopup((p) => (p ? null : { x: r.left, y: r.bottom + 4 }));
+        }
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        setPopup(null);
         onMenu?.(control.uid, e.clientX, e.clientY);
       }}
       className={`flex ${large ? "min-w-12 flex-col items-center" : "min-w-10 flex-row items-center gap-1"} rounded-md px-1 py-0.5 ${selected ? "bg-mist ring-1 ring-leaf" : ""}`}
@@ -318,9 +354,41 @@ function ControlChip({ control, large, onMenu }: { control: Control; large?: boo
         <>
           {img ? <img src={img.dataUrl} alt="" className="h-5 w-5 object-contain" /> : <span className="grid h-5 w-5 place-items-center rounded bg-pine text-[10px] text-white">{def?.mark}</span>}
           <span className="max-w-16 truncate text-[10px]">{caption}</span>
+          {hasItems ? <span className="text-[9px] leading-none text-mute">▾</span> : null}
         </>
       )}
     </button>
+  );
+  if (!hasItems || !popup) return chip;
+  const items = control.items as { uid: string; id: string; label: string }[];
+  return (
+    <>
+      {chip}
+      {/* 엑셀에서 드롭다운을 펼친 모습처럼 항목을 보여준다. 메뉴 항목은 누르면 그 단추를 선택한다. */}
+      <div
+        ref={popupRef}
+        data-testid="control-item-preview"
+        style={{ left: Math.min(popup.x, window.innerWidth - 220), top: Math.min(popup.y, window.innerHeight - 40) }}
+        className="fixed z-30 max-h-72 min-w-44 overflow-auto rounded-lg border border-line bg-card py-1 text-sm shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {items.length ? items.map((it) => (
+          <button
+            key={it.uid}
+            type="button"
+            className="flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-mist"
+            onClick={() => {
+              if (control.type === "menu" || control.type === "splitButton") useEditorStore.getState().select({ kind: "control", uid: it.uid });
+              setPopup(null);
+            }}
+          >
+            <span className="text-xs text-mute">·</span>
+            <span>{it.label || it.id || "(이름 없음)"}</span>
+          </button>
+        )) : <p className="px-4 py-1.5 text-mute">항목이 없습니다. 속성 패널에서 추가하세요.</p>}
+      </div>
+    </>
   );
 }
 

@@ -76,6 +76,7 @@ export interface DropDownControl extends ControlBase {
   type: "dropDown";
   items: ListItem[];
   onAction: string;
+  getSelectedItemID: string;
 }
 
 export interface MenuControl extends ControlBase {
@@ -198,4 +199,4 @@ export type Selection =
   | { kind: "group"; uid: string }
   | { kind: "control"; uid: string };
 
-export type CallbackKind = "button" | "pressed" | "text" | "dropdown" | "getval" | "onload";
+export type CallbackKind = "button" | "pressed" | "text" | "dropdown" | "getval" | "selitem" | "onload";
