@@ -189,7 +189,7 @@ export function App() {
       images: s.images,
       // 연결된 콜백이 없으면 매크로 없는 .xlsx로 저장한다.
       includeVba: s.includeVba && !s.hasExistingVba && collectCallbacks(s.ribbon).length > 0,
-      vbaSource: generateVba(s.ribbon, s.macros),
+      vbaSource: generateVba(s.ribbon, s.macros, { embedded: true }),
       hasExistingVba: s.hasExistingVba,
     };
     if (s.includeVba && s.hasExistingVba) {

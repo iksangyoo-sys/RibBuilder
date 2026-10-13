@@ -23,7 +23,7 @@ describe("generateVba", () => {
     expect(vba).toContain("Sub dd_Pick(control As IRibbonControl, id As String, index As Integer)");
   });
 
-  it("드롭다운 콜백은 항목 id로 분기하고 getSelectedItemID는 첫 항목을 돌려준다", () => {
+  it("드롭다운은 TODO 자리를 두고 getSelectedItemID는 첫 항목을 돌려준다", () => {
     const issuer = new IdIssuer();
     const tab = createCustomTab(issuer, 1);
     const g = createGroup(issuer);
@@ -35,8 +35,7 @@ describe("generateVba", () => {
     g.controls.push(dd);
     tab.groups.push(g);
     const vba = generateVba({ tabs: [tab] });
-    expect(vba).toContain("    Select Case id");
-    expect(vba).toContain('        Case "google"');
+    expect(vba).toContain("Sub dd_Pick(control As IRibbonControl, id As String, index As Integer)\r\n    ' TODO: 선택된 항목 처리 (id / index)\r\nEnd Sub");
     expect(vba).toContain("Sub dd_First(control As IRibbonControl, ByRef returnedVal)");
     expect(vba).toContain('    returnedVal = "youtube"');
   });
@@ -52,6 +51,32 @@ describe("generateVba", () => {
     const vba = generateVba({ tabs: [tab] }, [{ name: "btn_메일발송", source: "file" }]);
     expect(vba).toContain("이미 있습니다");
     expect(vba).not.toContain("Sub btn_메일발송");
+  });
+
+  it("머리말·MyRibbon·이름순·LoadImage 형식으로 만든다", () => {
+    const issuer = new IdIssuer();
+    const tab = createCustomTab(issuer, 1);
+    const g = createGroup(issuer);
+    const send = createControl(issuer, "button");
+    const merge = createControl(issuer, "button");
+    const chk = createControl(issuer, "checkBox");
+    if (send.type !== "button" || merge.type !== "button" || chk.type !== "checkBox") throw new Error("type");
+    send.onAction = "btn_SendMail";
+    send.imageId = "img_mail";
+    merge.onAction = "btn_MergeFile";
+    chk.getPressed = "chk_Init";
+    g.controls.push(send, merge, chk);
+    tab.groups.push(g);
+    const vba = generateVba({ tabs: [tab] });
+    expect(vba.startsWith("' ====")).toBe(true);
+    expect(vba).toContain("' 사용법: Alt+F11 → 삽입 → 모듈 → 아래 전체를 붙여넣기");
+    expect(vba).toContain("Public MyRibbon As IRibbonUI");
+    expect(vba.indexOf("Sub btn_MergeFile(")).toBeLessThan(vba.indexOf("Sub btn_SendMail("));
+    expect(vba).toContain(`Sub btn_SendMail(control As IRibbonControl)\r\n    ' TODO: 매크로 코드를 작성하세요\r\n    MsgBox "btn_SendMail 호출됨"\r\nEnd Sub`);
+    expect(vba).toContain("    returnedVal = False");
+    expect(vba).not.toContain('MsgBox "chk_Init');
+    expect(vba).toContain("Sub LoadImage(imageID As String, ByRef image)");
+    expect(generateVba({ tabs: [tab] }, [], { embedded: true })).not.toContain("사용법");
   });
 
   it("버튼과 드롭다운이 같은 매크로를 쓰면 충돌로 잡고 저장 전 확인에서 오류로 막는다", () => {

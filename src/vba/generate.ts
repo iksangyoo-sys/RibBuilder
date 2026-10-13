@@ -102,7 +102,53 @@ export function signatureConflicts(doc: RibbonDoc): { name: string; refs: Callba
   return [...byName].filter(([, refs]) => refs.some((r) => !sameSignature(r.kind, refs[0].kind))).map(([name, refs]) => ({ name, refs }));
 }
 
-export function generateVba(doc: RibbonDoc, macros: MacroDef[] = []): string {
+const RULE = "' " + "=".repeat(70);
+
+export interface GenerateOptions {
+  /** true면 파일 안 모듈에 넣을 코드라 붙여넣기 안내를 뺀다. */
+  embedded?: boolean;
+}
+
+function usesCustomImage(doc: RibbonDoc): boolean {
+  let found = false;
+  walkControls(doc, (c) => {
+    if (c.imageId) found = true;
+  });
+  return found;
+}
+
+/** 매크로 하나의 본문 (Sub와 End Sub 사이). */
+function stubBody(name: string, kind: CallbackKind, refs: CallbackRef[]): string[] {
+  const one = refs.length === 1 ? refs[0] : undefined;
+  switch (kind) {
+    case "onload":
+      return ["    Set MyRibbon = ribbon"];
+    case "dropdown":
+      return ["    ' TODO: 선택된 항목 처리 (id / index)"];
+    case "selitem": {
+      const first = one?.items?.[0]?.id;
+      return ["    ' TODO: 처음 선택될 항목의 id를 돌려주세요", `    returnedVal = \"${(first ?? "").replace(/"/g, '""')}\"`];
+    }
+    case "getval":
+      // 리본이 그려질 때마다 불리므로 MsgBox 대신 값을 돌려준다.
+      return one?.key === "getText"
+        ? ["    ' TODO: 처음 보여줄 텍스트를 돌려주세요", '    returnedVal = ""']
+        : ["    ' TODO: 처음 눌림·체크 상태를 돌려주세요", "    returnedVal = False"];
+    default:
+      if (refs.length > 1 && refs.every((r) => r.controlId)) {
+        const rows = ["    ' TODO: 매크로 코드를 작성하세요", "    Select Case control.ID"];
+        for (const r of refs) {
+          rows.push(`        Case \"${(r.controlId ?? "").replace(/"/g, '""')}\"   ' ${r.label || r.controlId}`);
+          rows.push(`            MsgBox \"${name} 호출됨 (${r.controlId})\"`);
+        }
+        rows.push("    End Select");
+        return rows;
+      }
+      return ["    ' TODO: 매크로 코드를 작성하세요", `    MsgBox \"${name} 호출됨\"`];
+  }
+}
+
+export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: GenerateOptions = {}): string {
   const skip = new Set(macros.filter((m) => m.source === "file").map((m) => m.name));
   const bodies = new Map(macros.filter((m) => m.body).map((m) => [m.name, m.body!]));
   const all = collectCallbacks(doc);
@@ -123,51 +169,45 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = []): string {
     list.push(c);
     owners.set(c.name, list);
   }
-  const lines = ["Option Explicit", ""];
-  if (doc.settings?.onLoad) {
-    lines.push("Private ribbonUI As IRibbonUI", "");
-  }
+  const lines = [
+    RULE,
+    "' Excel Ribbon Builder 생성 코드 (새로 추가한 매크로만)",
+    ...(options.embedded ? [] : ["' 사용법: Alt+F11 → 삽입 → 모듈 → 아래 전체를 붙여넣기"]),
+    RULE,
+    "Option Explicit",
+    "",
+    "' onLoad 콜백에서 할당 - 이후 리본을 동적으로 무효화할 때 필요",
+    "Public MyRibbon As IRibbonUI",
+    "",
+  ];
   if (conflicts.length) {
     lines.push("' 경고: 같은 매크로가 서로 다른 콜백 종류에 쓰였습니다. 처음 쓰인 서명을 따릅니다.");
     lines.push("' " + [...new Set(conflicts)].join(", "));
     lines.push("");
   }
-  for (const [name, kind] of first) {
-    const refs = owners.get(name) ?? [];
-    const who = refs.map((r) => r.label || r.controlId).filter(Boolean).join(", ");
-    lines.push(`' ${who || name} 콜백`);
+  // 이름순으로 정렬해 VBA 편집기에서 찾기 쉽게 한다.
+  for (const [name, kind] of [...first].sort(([a], [b]) => a.localeCompare(b, "en"))) {
     lines.push(`Sub ${name}(${SIG[kind]})`);
-    if (kind === "onload") {
-      lines.push("    Set ribbonUI = ribbon");
-    } else if (bodies.has(name)) {
+    if (kind !== "onload" && bodies.has(name)) {
       for (const row of bodies.get(name)!.split(/\r?\n/)) lines.push(row ? `    ${row}` : "");
-    } else if (refs.length === 1 && kind === "dropdown" && refs[0].items?.length) {
-      lines.push("    Select Case id");
-      for (const it of refs[0].items) {
-        lines.push(`        Case \"${it.id.replace(/"/g, '""')}\"   ' ${it.label || it.id}`);
-        lines.push(`            MsgBox \"${(it.label || it.id).replace(/"/g, '""')}\"`);
-      }
-      lines.push("    End Select");
-    } else if (refs.length === 1 && kind === "selitem" && refs[0].items?.length) {
-      lines.push("    ' 처음 선택될 항목의 id를 돌려줍니다");
-      lines.push(`    returnedVal = \"${refs[0].items[0].id.replace(/"/g, '""')}\"`);
-    } else if (refs.length > 1 && refs.every((r) => r.controlId)) {
-      lines.push("    Select Case control.ID");
-      for (const r of refs) {
-        lines.push(`        Case \"${(r.controlId ?? "").replace(/"/g, '""')}\"`);
-        lines.push(`            MsgBox \"${name} / ${r.controlId}\"`);
-      }
-      lines.push("    End Select");
     } else {
-      lines.push("    ' 여기에 실행할 코드를 작성하세요");
-      lines.push(`    MsgBox \"${name.replace(/"/g, '""')}\"`);
+      lines.push(...stubBody(name, kind, owners.get(name) ?? []));
     }
     lines.push("End Sub");
     lines.push("");
   }
   if (doc.settings?.onLoad) {
     lines.push("Sub RefreshRibbon()");
-    lines.push("    If Not ribbonUI Is Nothing Then ribbonUI.Invalidate");
+    lines.push("    If Not MyRibbon Is Nothing Then MyRibbon.Invalidate");
+    lines.push("End Sub");
+    lines.push("");
+  }
+  if (usesCustomImage(doc)) {
+    lines.push(`' image="..." 속성을 쓰는 컨트롤의 아이콘 로더`);
+    lines.push(`' imageID는 리본 XML의 image="..." 값과 일치해야 합니다`);
+    lines.push("Sub LoadImage(imageID As String, ByRef image)");
+    lines.push("    ' customUI/images/ 폴더에 저장된 이미지가 자동으로 로드됩니다");
+    lines.push("    ' 이미지가 customUI 패키지에 포함되어 있으면 별도 구현은 필요 없습니다.");
     lines.push("End Sub");
     lines.push("");
   }
