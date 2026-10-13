@@ -62,6 +62,15 @@ function addControlCallbacks(c: Control, list: CallbackRef[]): void {
   }
 }
 
+/**
+ * 리본에서 연결이 끊긴 매크로를 목록에서 뺀다 (컨트롤을 지우거나 다른 매크로로 바꾼 경우).
+ * 파일의 VBA에 있는 것, 매크로 관리에서 직접 등록한 것, 본문이 있는 것은 남긴다.
+ */
+export function pruneMacros(doc: RibbonDoc, macros: MacroDef[]): MacroDef[] {
+  const used = new Set(collectCallbacks(doc).map((c) => c.name));
+  return macros.filter((m) => m.source === "file" || m.pinned || m.body || used.has(m.name));
+}
+
 /** 콜백 칸(컨트롤 종류 + 속성 이름)이 요구하는 VBA 서명 종류. */
 export function fieldKind(controlType: string, key: string): CallbackKind {
   if (key === "getPressed" || key === "getText") return "getval";

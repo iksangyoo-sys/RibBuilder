@@ -183,6 +183,8 @@ export interface MacroDef {
   source: MacroSource;
   callbackKind?: CallbackKind;
   body?: string;
+  /** 매크로 관리에서 직접 등록한 매크로. 리본에 연결되지 않아도 목록에 남긴다. */
+  pinned?: boolean;
 }
 
 export type OriginKind = "xlsx" | "xlsm" | "xlsb" | "xlam" | "blank";
