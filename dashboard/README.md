@@ -33,8 +33,11 @@ https://iksangyoo-sys.github.io/RibBuilder/dashboard/
 - 긴급가산율·부품비 빈 값은 0, 정산공수·총정비비 빈 값은 산식으로 계산합니다. 입력된 값이 산식과 다르면 입력값을 쓰고 불일치 건수를 표시합니다.
 - `담당자`·`Source.Name` 컬럼은 읽지 않습니다 (개인정보 보호).
 
-## 외부 라이브러리 (CDN, 인터넷 연결 필요)
+## 라이브러리
 
-- ECharts 5.5.1 — 차트
-- SheetJS (xlsx) 0.18.5 — 엑셀 파싱
-- Pretendard 1.3.9 — 한글 웹폰트
+인터넷이 막힌 곳에서도 동작하도록 아래 라이브러리를 `index.html` 안에 그대로 넣었습니다 (파일 크기 약 2MB).
+
+- ECharts 5.5.1 — 차트 (Apache-2.0)
+- SheetJS CE (xlsx) 0.18.5 — 엑셀 파싱 (Apache-2.0)
+
+한글 웹폰트 Pretendard만 CDN에서 받아오며, 받지 못하면 맑은 고딕 등 시스템 글꼴로 표시됩니다.
