@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* dashboard/는 별도 정적 페이지라 Tailwind 클래스 스캔에서 제외 */
+@source not "../dashboard";
 
 @theme {
   --color-pine: #1f4d3a;
