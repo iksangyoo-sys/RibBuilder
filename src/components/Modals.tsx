@@ -184,7 +184,7 @@ export function MacroManager({ onClose, onCreate }: { onClose: () => void; onCre
           e.preventDefault();
           const msg = vbaNameError(name.trim());
           if (msg) { setErr(msg); return; }
-          addMacro({ name: name.trim(), source: "manual" });
+          addMacro({ name: name.trim(), source: "manual", pinned: true });
           setName(""); setErr("");
         }}>
           <input className="w-full rounded border border-line px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="다른 파일의 매크로 이름" />
@@ -233,7 +233,7 @@ export function NewMacroModal({ onClose, target }: { onClose: () => void; target
             setErr(`"${name.trim()}"는 ${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}에 이미 쓰고 있어 형식이 맞지 않습니다. 다른 이름을 쓰세요.`);
             return;
           }
-          addMacro({ name: name.trim(), source: "builder" });
+          // 먼저 콜백에 연결한 뒤 목록에 넣는다. 연결 없이 넣으면 정리 규칙에 따라 바로 빠진다.
           if (found && target) {
             const patch = useEditorStore.getState().patchControl;
             if (found.type === "splitButton" && target === "onAction") {
@@ -241,6 +241,9 @@ export function NewMacroModal({ onClose, target }: { onClose: () => void; target
             } else {
               patch(found.uid, { [target]: name.trim() } as Partial<Control>);
             }
+            addMacro({ name: name.trim(), source: "builder" });
+          } else {
+            addMacro({ name: name.trim(), source: "builder", pinned: true });
           }
           onClose();
         }}>추가</button>

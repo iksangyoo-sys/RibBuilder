@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createControl, createCustomTab, createGroup } from "@/model/factory";
 import { IdIssuer } from "@/model/ids";
-import { generateVba, signatureClash, signatureConflicts } from "./generate";
+import { generateVba, pruneMacros, signatureClash, signatureConflicts } from "./generate";
 import { validateDoc } from "@/model/validate";
 
 describe("generateVba", () => {
@@ -105,5 +105,25 @@ describe("generateVba", () => {
     const errors = validateDoc(doc, new Set()).filter((i) => i.level === "error");
     expect(errors.some((i) => i.message.includes("btn_OpenChatGPT") && i.message.includes("드롭다운 선택"))).toBe(true);
     expect(errors.some((i) => i.message.includes("get_Init"))).toBe(false);
+  });
+
+  it("연결이 끊긴 매크로는 목록에서 빼고, 파일·직접 등록·본문 있는 매크로는 남긴다", () => {
+    const issuer = new IdIssuer();
+    const tab = createCustomTab(issuer, 1);
+    const g = createGroup(issuer);
+    const btn = createControl(issuer, "button");
+    if (btn.type !== "button") throw new Error("type");
+    btn.onAction = "btn_InUse";
+    g.controls.push(btn);
+    tab.groups.push(g);
+    const kept = pruneMacros({ tabs: [tab] }, [
+      { name: "btn_InUse", source: "builder" },
+      { name: "btn_Deleted", source: "builder" },
+      { name: "cbo_FromXml", source: "manual" },
+      { name: "btn_InFile", source: "file" },
+      { name: "btn_Registered", source: "manual", pinned: true },
+      { name: "btn_HasCode", source: "builder", body: "MsgBox 1" },
+    ]).map((m) => m.name);
+    expect(kept).toEqual(["btn_InUse", "btn_InFile", "btn_Registered", "btn_HasCode"]);
   });
 });

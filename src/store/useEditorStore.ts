@@ -20,6 +20,7 @@ import { parseCustomUi } from "@/xml/parse";
 import { macrosFromDoc, mergeRibbon } from "@/xml/merge";
 import { EXAMPLES } from "@/examples";
 import { b64ToBytes, clearDraft, loadDraft, saveDraft } from "./persist";
+import { pruneMacros } from "@/vba/generate";
 
 function blankBytes(): Uint8Array {
   return b64ToBytes(BLANK_XLSX_B64);
@@ -181,7 +182,7 @@ function sessionFromDraft() {
     dirty: true,
     ribbon: ensureBuiltinTabs(draft.ribbon),
     images: draft.images,
-    macros: draft.macros,
+    macros: pruneMacros(draft.ribbon, draft.macros),
     notes: [] as string[],
     selection: { kind: "none" as const },
     clipboard: null,
@@ -242,6 +243,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       dirty: true,
     };
     recipe(next);
+    next.macros = pruneMacros(next.ribbon, next.macros);
     persistState(next);
     set(next);
   };
@@ -295,7 +297,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
         dirty: true,
         ribbon: ensureBuiltinTabs(draft.ribbon),
         images: draft.images,
-        macros: draft.macros,
+        macros: pruneMacros(draft.ribbon, draft.macros),
         notes: [],
         selection: { kind: "none" },
         clipboard: null,
