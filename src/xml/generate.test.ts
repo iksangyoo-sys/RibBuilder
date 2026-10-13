@@ -129,4 +129,13 @@ describe("generateCustomUi", () => {
       expect(btn.onAction).toBe("btn_ChatGPT");
     }
   });
+
+  it("기본 탭 안 사용자 그룹의 위치(insertBeforeMso)를 쓰고 다시 읽는다", () => {
+    const xml = `<?xml version="1.0"?><customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui"><ribbon><tabs><tab idMso="TabHome"><group id="grpMine" label="내 그룹" insertBeforeMso="GroupStyles"/></tab></tabs></ribbon></customUI>`;
+    const parsed = parseCustomUi(xml);
+    const home = parsed.doc.tabs.find((t) => t.kind === "builtin" && t.idMso === "TabHome");
+    const g = home?.groups[0];
+    expect(g?.kind === "custom" && g.insertBeforeMso).toBe("GroupStyles");
+    expect(generateCustomUi(parsed.doc)).toContain('<tab idMso="TabHome"><group id="grpMine" label="내 그룹" insertBeforeMso="GroupStyles"></group></tab>');
+  });
 });

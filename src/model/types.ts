@@ -123,6 +123,9 @@ export interface CustomGroup {
   id: string;
   label: string;
   controls: Control[];
+  /** 기본 탭 안에서 이 그룹을 둘 자리 (기본 그룹 idMso 앞/뒤). 비우면 탭 끝. */
+  insertBeforeMso?: string;
+  insertAfterMso?: string;
 }
 
 export interface BuiltinGroup {

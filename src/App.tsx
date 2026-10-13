@@ -267,7 +267,6 @@ export function App() {
             onDelete={requestDelete}
             onIcon={() => setIcon(true)}
             onNewMacro={(key) => setNewMacro({ key })}
-            onManageMacros={() => setMacroManager(true)}
           />
         </div>
         <DragOverlay />

@@ -3,6 +3,7 @@ import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dn
 import { CSS } from "@dnd-kit/utilities";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CONTROL_DEFS } from "@/constants/controls";
+import { builtinGroupsOf } from "@/constants/idMso";
 import type { Control, CustomGroup, Group, Tab } from "@/model/types";
 import { useEditorStore } from "@/store/useEditorStore";
 
@@ -26,81 +27,118 @@ export function Canvas(props: Props) {
   const selection = useEditorStore((s) => s.selection);
   const select = useEditorStore((s) => s.select);
   const addTab = useEditorStore((s) => s.addTab);
+  const addTabAt = useEditorStore((s) => s.addTabAt);
   const addGroup = useEditorStore((s) => s.addGroup);
-  const customTabs = orderedTabs(tabs).filter((t) => t.kind === "custom");
+  const addGroupAt = useEditorStore((s) => s.addGroupAt);
+  const strip = tabStrip(tabs);
+  const customTabs = tabs.filter((t) => t.kind === "custom");
   const fromSel = selection.kind === "none" ? undefined : tabOfSelection(tabs, selection.uid);
-  const activeTab = fromSel?.kind === "custom" ? fromSel : customTabs[customTabs.length - 1];
+  const activeTab = fromSel ?? customTabs[customTabs.length - 1] ?? tabs.find((t) => t.kind === "builtin");
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-paper">
-      <div
-        className="flex items-end gap-1 overflow-x-auto border-b border-line px-3 pt-3"
-        onContextMenu={(e) => {
-          const uid = (e.target as HTMLElement).closest("[data-tab-uid]")?.getAttribute("data-tab-uid");
-          if (!uid) return;
-          e.preventDefault();
-          select({ kind: "tab", uid });
-          props.setMenu({ kind: "tab", uid, x: e.clientX, y: e.clientY });
-        }}
-      >
-        <SortableContext items={customTabs.map((t) => `tab:${t.uid}`)} strategy={horizontalListSortingStrategy}>
-          {customTabs.map((tab) => (
-            <TabChip
-              key={tab.uid}
-              tab={tab}
-              sortable
-              setMenu={props.setMenu}
-              active={activeTab?.uid === tab.uid}
-              renaming={props.renaming?.kind === "tab" && props.renaming.uid === tab.uid}
-              onRenameDone={(label) => {
-                if (label.trim()) useEditorStore.getState().renameTab(tab.uid, label.trim());
-                props.setRenaming(null);
-              }}
-              onSelect={() => select({ kind: "tab", uid: tab.uid })}
-              onContext={(e) => {
-                e.preventDefault();
-                select({ kind: "tab", uid: tab.uid });
-                props.setMenu({ kind: "tab", uid: tab.uid, x: e.clientX, y: e.clientY });
-              }}
-              onDouble={() => {
-                props.setRenaming({ kind: "tab", uid: tab.uid });
-              }}
-            />
-          ))}
-        </SortableContext>
-        <button type="button" className="mb-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-semibold text-white" onClick={addTab}>+ 탭 추가</button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4">
-        {activeTab ? (
-          <GroupRow
-            tab={activeTab}
-            {...props}
-            onAddGroup={() => addGroup(activeTab.uid)}
-          />
-        ) : (
-          <p className="text-mute">[+ 탭 추가]로 사용자 탭을 만드세요.</p>
-        )}
+      <div className="m-3 mb-0 flex min-h-0 flex-1 flex-col rounded-xl border border-line bg-card">
+        <div
+          className="flex items-stretch overflow-x-auto border-b border-line px-2"
+          onContextMenu={(e) => {
+            const uid = (e.target as HTMLElement).closest("[data-tab-uid]")?.getAttribute("data-tab-uid");
+            if (!uid) return;
+            e.preventDefault();
+            select({ kind: "tab", uid });
+            props.setMenu({ kind: "tab", uid, x: e.clientX, y: e.clientY });
+          }}
+        >
+          <SortableContext items={customTabs.map((t) => `tab:${t.uid}`)} strategy={horizontalListSortingStrategy}>
+            {strip.map((item) => item.kind === "gap" ? (
+              <InsertGap key={`gap:${item.before}`} variant="tab" label="이 자리에 탭 추가" onAdd={() => addTabAt(item.before)} />
+            ) : (
+              <TabChip
+                key={item.tab.uid}
+                tab={item.tab}
+                sortable={item.tab.kind === "custom"}
+                setMenu={props.setMenu}
+                active={activeTab?.uid === item.tab.uid}
+                renaming={props.renaming?.kind === "tab" && props.renaming.uid === item.tab.uid}
+                onRenameDone={(label) => {
+                  if (label.trim()) useEditorStore.getState().renameTab(item.tab.uid, label.trim());
+                  props.setRenaming(null);
+                }}
+                onSelect={() => select({ kind: "tab", uid: item.tab.uid })}
+                onContext={(e) => {
+                  e.preventDefault();
+                  select({ kind: "tab", uid: item.tab.uid });
+                  props.setMenu({ kind: "tab", uid: item.tab.uid, x: e.clientX, y: e.clientY });
+                }}
+                onDouble={() => {
+                  if (item.tab.kind === "custom") props.setRenaming({ kind: "tab", uid: item.tab.uid });
+                }}
+              />
+            ))}
+          </SortableContext>
+          <div className="flex items-center py-2 pl-3">
+            <button type="button" className="whitespace-nowrap rounded-lg bg-pine px-4 py-2 text-sm font-bold text-white" onClick={addTab}>+ 탭 추가</button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          {activeTab?.kind === "builtin" ? (
+            <BuiltinTabBody tab={activeTab} {...props} onAddGroupAt={(before) => addGroupAt(activeTab.uid, before)} />
+          ) : activeTab ? (
+            <GroupRow tab={activeTab} {...props} onAddGroup={() => addGroup(activeTab.uid)} />
+          ) : (
+            <p className="text-mute">[+ 탭 추가]로 사용자 탭을 만드세요.</p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function orderedTabs(tabs: Tab[]): Tab[] {
-  const customs = tabs.filter((t) => t.kind === "custom");
+type StripItem = { kind: "tab"; tab: Tab } | { kind: "gap"; before: string };
+
+/** 탭 줄: 기본 탭 순서대로, 사용자 탭은 insertBeforeMso/insertAfterMso 자리에, 나머지는 끝에. 기본 탭 앞마다 끼워 넣을 틈을 둔다. */
+function tabStrip(tabs: Tab[]): StripItem[] {
+  const customs = tabs.filter((t): t is Extract<Tab, { kind: "custom" }> => t.kind === "custom");
   const builtins = tabs.filter((t) => t.kind === "builtin");
-  const used = new Set<string>();
-  const out: Tab[] = [];
+  const placed = new Set<string>();
+  const out: StripItem[] = [];
   for (const b of builtins) {
-    out.push(b);
-    for (const c of customs) {
-      if (c.kind === "custom" && c.insertAfterMso === b.idMso) {
-        out.push(c);
-        used.add(c.uid);
-      }
-    }
+    if (b.kind !== "builtin") continue;
+    for (const c of customs) if (c.insertBeforeMso === b.idMso) { out.push({ kind: "tab", tab: c }); placed.add(c.uid); }
+    out.push({ kind: "gap", before: b.idMso });
+    out.push({ kind: "tab", tab: b });
+    for (const c of customs) if (!placed.has(c.uid) && c.insertAfterMso === b.idMso) { out.push({ kind: "tab", tab: c }); placed.add(c.uid); }
   }
-  for (const c of customs) if (!used.has(c.uid)) out.push(c);
+  for (const c of customs) if (!placed.has(c.uid)) out.push({ kind: "tab", tab: c });
   return out;
+}
+
+/** 마우스를 올리면 "+" 칸으로 벌어지는 틈. 누르면 그 자리에 탭/그룹을 넣는다. */
+function InsertGap({ variant, label, onAdd }: { variant: "tab" | "group"; label: string; onAdd: () => void }) {
+  if (variant === "tab") {
+    return (
+      <button
+        type="button"
+        title={label}
+        aria-label={label}
+        onClick={onAdd}
+        className="group/gap my-2 flex w-2 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-transparent text-pine transition-all duration-150 hover:mx-1 hover:w-8 hover:border-pine hover:bg-mist"
+      >
+        <span className="text-lg font-bold opacity-0 group-hover/gap:opacity-100">+</span>
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      data-testid="group-insert-gap"
+      onClick={onAdd}
+      className="group/gap flex min-h-[180px] w-3 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-transparent text-pine transition-all duration-150 hover:w-32 hover:border-pine hover:bg-mist"
+    >
+      <span className="text-2xl font-bold opacity-0 group-hover/gap:opacity-100">+</span>
+    </button>
+  );
 }
 
 function tabOfSelection(tabs: Tab[], uid: string): Tab | undefined {
@@ -133,7 +171,8 @@ function TabChip({
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: `tab:${tab.uid}`, disabled: !sortable });
   const style = { transform: CSS.Transform.toString(transform), transition };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} data-tab-uid={tab.uid} onContextMenu={onContext} className="flex items-end">
+    // 끌 수 없는 기본 탭에는 끌기 속성(aria-disabled 등)을 주지 않는다. 주면 탭 자체가 "사용 안 함"으로 읽힌다.
+    <div ref={setNodeRef} style={style} {...(sortable ? attributes : {})} {...(sortable ? listeners : {})} data-tab-uid={tab.uid} onContextMenu={onContext} className="group/tab relative flex items-stretch">
       {renaming ? (
         <InlineEdit value={tab.label} onDone={onRenameDone} />
       ) : (
@@ -144,7 +183,7 @@ function TabChip({
           onClick={onSelect}
           onDoubleClick={onDouble}
           onContextMenu={onContext}
-          className={`rounded-t-lg px-2 py-1.5 text-sm whitespace-nowrap ${tab.kind === "custom" ? "text-pine font-bold" : "text-mute"} ${tab.kind === "builtin" && tab.visible === false ? "line-through" : ""} ${active ? "bg-card border border-b-0 border-line shadow-[inset_0_-2px_0_#3c8a5c]" : ""}`}
+          className={`whitespace-nowrap border-b-[3px] px-3 py-3 text-[15px] ${active ? "border-pine text-pine" : "border-transparent"} ${!active && tab.kind === "custom" ? "font-semibold text-ink" : ""} ${!active && tab.kind === "builtin" ? "text-mute" : ""} ${tab.kind === "builtin" && tab.visible === false ? "line-through" : ""}`}
         >
           {tab.label}
         </button>
@@ -152,7 +191,7 @@ function TabChip({
           type="button"
           aria-label={`${tab.label} 메뉴`}
           data-testid={tab.kind === "custom" ? "custom-tab-menu" : "builtin-tab-menu"}
-          className="mb-1 px-1 text-mute"
+          className="absolute right-0 top-1 px-1 text-xs text-mute opacity-0 group-hover/tab:opacity-100"
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -164,6 +203,58 @@ function TabChip({
         </button>
         </>
       )}
+    </div>
+  );
+}
+
+/** 기본 탭: 엑셀의 기본 그룹을 회색 칸으로 보여 주고, 그 사이·끝에 사용자 그룹을 넣을 수 있게 한다. */
+function BuiltinTabBody({ tab, onAddGroupAt, renaming, setRenaming, setMenu, onAskDeleteGroup }: Props & { tab: Tab; onAddGroupAt: (beforeMso?: string) => void }) {
+  if (tab.kind !== "builtin") return null;
+  const base = builtinGroupsOf(tab.idMso);
+  const ids = new Set(base.map((g) => g.idMso));
+  const slotOf = (g: Group): number => {
+    if (g.kind !== "custom") return base.length;
+    if (g.insertBeforeMso && ids.has(g.insertBeforeMso)) return base.findIndex((b) => b.idMso === g.insertBeforeMso);
+    if (g.insertAfterMso && ids.has(g.insertAfterMso)) return base.findIndex((b) => b.idMso === g.insertAfterMso) + 1;
+    return base.length;
+  };
+  const card = (group: Group) => (
+    <GroupCard
+      key={group.uid}
+      group={group}
+      setMenu={setMenu}
+      renaming={renaming?.kind === "group" && renaming.uid === group.uid}
+      onRenameDone={(label) => {
+        if (label.trim()) useEditorStore.getState().renameGroup(group.uid, label.trim());
+        setRenaming(null);
+      }}
+      onDouble={() => {
+        if (group.kind === "custom") setRenaming({ kind: "group", uid: group.uid });
+      }}
+      onContext={(e) => {
+        e.preventDefault();
+        useEditorStore.getState().select({ kind: "group", uid: group.uid });
+        setMenu({ kind: "group", uid: group.uid, x: e.clientX, y: e.clientY });
+      }}
+      onAskDelete={() => onAskDeleteGroup(group.uid)}
+    />
+  );
+  return (
+    <div className="flex items-stretch gap-1">
+      <SortableContext items={tab.groups.map((g) => `group:${g.uid}`)} strategy={horizontalListSortingStrategy}>
+        {base.map((b, i) => (
+          <div key={b.idMso} className="flex items-stretch gap-1">
+            {tab.groups.filter((g) => slotOf(g) === i).map(card)}
+            <InsertGap variant="group" label={`${b.label} 앞에 그룹 추가`} onAdd={() => onAddGroupAt(b.idMso)} />
+            <div className="flex min-h-[180px] w-32 shrink-0 flex-col rounded-lg border border-dashed border-line/70 bg-paper/60 text-mute/60" title={`${b.label} (${b.idMso}) — 엑셀 기본 그룹`}>
+              <div className="flex flex-1 items-center justify-center text-sm">기본</div>
+              <div className="border-t border-line/60 px-1 py-2 text-center text-xs font-semibold">{b.label}</div>
+            </div>
+          </div>
+        ))}
+        {tab.groups.filter((g) => slotOf(g) === base.length).map(card)}
+      </SortableContext>
+      <button type="button" aria-label="그룹 추가" onClick={() => onAddGroupAt(undefined)} className="ml-3 min-h-[180px] w-24 shrink-0 rounded-lg border-2 border-dashed border-line text-2xl text-mute hover:border-pine hover:text-pine">+</button>
     </div>
   );
 }

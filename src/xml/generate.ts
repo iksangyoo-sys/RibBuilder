@@ -87,7 +87,7 @@ export function groupXml(group: Group, comments = false): string {
   }
   const inner = group.controls.map(controlXml).join("");
   const note = comments ? `<!-- ${group.label} -->` : "";
-  return `${note}<group${attr("id", group.id)}${attr("label", group.label)}>${inner}</group>`;
+  return `${note}<group${attr("id", group.id)}${attr("label", group.label)}${attr("insertAfterMso", group.insertAfterMso ?? "")}${attr("insertBeforeMso", group.insertBeforeMso ?? "")}>${inner}</group>`;
 }
 
 export function tabEmits(tab: Tab): boolean {

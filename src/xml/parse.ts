@@ -172,6 +172,8 @@ function parseGroup(kids: Ordered, attrs: Record<string, string>, issuer: IdIssu
     id: a(attrs, "id") || issuer.next(PREFIX.group),
     label: a(attrs, "label"),
     controls: [],
+    ...(a(attrs, "insertAfterMso") ? { insertAfterMso: a(attrs, "insertAfterMso") } : {}),
+    ...(a(attrs, "insertBeforeMso") ? { insertBeforeMso: a(attrs, "insertBeforeMso") } : {}),
   };
   for (const child of childrenOf(kids)) {
     const parsed = parseControl(child.tag, child.kids, child.attrs, issuer, notes);
