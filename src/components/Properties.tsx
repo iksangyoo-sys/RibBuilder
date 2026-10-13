@@ -7,7 +7,7 @@ import { isXmlId } from "@/model/ids";
 import { createButton, createItem, issuerFromRibbon } from "@/model/factory";
 import { useEditorStore } from "@/store/useEditorStore";
 import { KIND_NAME, fieldKind, signatureClash } from "@/vba/generate";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void; onManageMacros: () => void };
 
@@ -174,35 +174,40 @@ function ControlProps({ uid, onIcon, onNewMacro, onManageMacros }: { uid: string
 }
 
 function IdField({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const [edit, setEdit] = useState(false);
   const [draft, setDraft] = useState(value);
-  const ids = allXmlIds(useEditorStore.getState().ribbon);
-  const err = !isXmlId(draft) ? "식별자 규칙에 맞지 않습니다." : (draft !== value && ids.includes(draft) ? "이미 있는 id입니다." : "");
-  // Field는 <label>이라, 다시 그려진 뒤 클릭이 새 [편집] 버튼으로 넘어가지 않게 preventDefault 한다.
-  const apply = () => { onChange(draft); setEdit(false); };
+  const [focused, setFocused] = useState(false);
+  // 다른 요소를 고르거나 실행 취소로 값이 바뀌면 입력칸도 따라간다 (입력 중에는 건드리지 않는다).
+  useEffect(() => {
+    if (!focused) setDraft(value);
+  }, [value, focused]);
+  const errorOf = (id: string) => {
+    if (!isXmlId(id)) return "식별자 규칙에 맞지 않습니다 (영문·숫자·_ . -, 첫 글자는 영문 또는 _).";
+    if (id !== value && allXmlIds(useEditorStore.getState().ribbon).includes(id)) return "이미 있는 id입니다.";
+    return "";
+  };
+  const err = errorOf(draft);
   return (
     <Field label="id" hint="VBA 매크로에서 이 이름을 참조합니다 (필요시에만 수정)">
-      {edit ? (
-        <div>
-          <input
-            className="w-full rounded border border-line bg-white px-2 py-1.5"
-            value={draft}
-            autoFocus
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { e.preventDefault(); if (!err) apply(); }
-              if (e.key === "Escape") { e.preventDefault(); setEdit(false); }
-            }}
-          />
-          {err ? <p className="text-xs text-clay">{err}</p> : null}
-          <button type="button" className="mt-1 text-sm underline" disabled={Boolean(err)} onClick={(e) => { e.preventDefault(); apply(); }}>적용</button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="flex-1 rounded border border-line bg-mist px-2 py-1.5 text-mute">{value}</span>
-          <button type="button" className="text-sm text-mute" onClick={(e) => { e.preventDefault(); setDraft(value); setEdit(true); }}>편집</button>
-        </div>
-      )}
+      <input
+        className={`w-full rounded border bg-white px-2 py-1.5 ${err ? "border-clay" : "border-line"}`}
+        value={draft}
+        onFocus={() => setFocused(true)}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft(next);
+          // 규칙에 맞는 id만 바로 반영한다. 틀린 값은 반영하지 않고 아래에 이유를 보여 준다.
+          if (!errorOf(next) && next !== value) onChange(next);
+        }}
+        onBlur={() => {
+          // 틀린 값을 남긴 채 나가면 마지막으로 반영된 id로 되돌린다.
+          setFocused(false);
+          setDraft(value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
+        }}
+      />
+      {err ? <p className="text-xs text-clay">{err} 칸을 벗어나면 "{value}"(으)로 돌아갑니다.</p> : null}
     </Field>
   );
 }
