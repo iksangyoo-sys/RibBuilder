@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>차체공정 정비비 지표현황</title>
+<link rel="icon" href="data:," />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* ──────────────────────────────────────────────────────────────
+   디자인 토큰 — 아진산업 CI 색상으로 바꿀 때는 이 블록만 수정
+   (참고: https://www.wamc.co.kr/bbs/content.php?co_id=ci)
+   ────────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+  --brand:        #0b2d5b;  /* CI 주색 (네이비) */
+  --brand-2:      #0068b7;  /* CI 보조색 (블루) */
+  --brand-soft:   #e8f0fa;
+  --bg:           #f4f6f9;
+  --surface:      #ffffff;
+  --line:         #dfe4ec;
+  --line-strong:  #c5cdd9;
+  --text-1:       #111827;
+  --text-2:       #4b5563;
+  --text-3:       #8a94a6;
+  --good:         #0a8a3a;
+  --bad:          #d03b3b;
+  --warn-bg:      #fff7e6;
+  --warn-line:    #f5c56b;
+
+  /* 의미가 고정된 색 — 모든 차트에서 동일 */
+  --c-plan:       #2a78d6;  /* 계획 */
+  --c-unplan:     #eb6834;  /* 비계획 */
+  --c-total:      #0d366b;  /* 합계 */
+  --radius:       10px;
+  --shadow:       0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text-1); font-family: var(--font); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ── 헤더 ── */
+.topbar { background: var(--brand); color: #fff; }
+.topbar-inner { max-width: 1480px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; }
+.logo-mark { font-weight: 800; letter-spacing: .12em; font-size: 20px; padding: 2px 10px; border: 2px solid #fff; border-radius: 4px; }
+.logo-name { font-size: 13px; opacity: .85; line-height: 1.2; }
+.title-wrap { flex: 1; min-width: 220px; }
+.title-wrap h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.title-wrap p { margin: 2px 0 0; font-size: 12.5px; opacity: .8; }
+.top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line-strong); background: var(--surface); color: var(--text-1); border-radius: 8px; padding: 7px 12px; cursor: pointer; line-height: 1.2; white-space: nowrap; }
+.btn:hover { border-color: var(--brand-2); color: var(--brand-2); }
+.btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.45); }
+.btn-ghost:hover { color: #fff; border-color: #fff; background: rgba(255,255,255,.08); }
+.btn-primary { background: var(--brand-2); border-color: var(--brand-2); color: #fff; }
+.btn-primary:hover { color: #fff; filter: brightness(1.08); }
+.subbar { background: #08234a; color: rgba(255,255,255,.82); font-size: 12px; }
+.subbar-inner { max-width: 1480px; margin: 0 auto; padding: 6px 24px; display: flex; gap: 18px; flex-wrap: wrap; }
+.subbar b { color: #fff; font-weight: 600; }
+.dot-live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4ade80; margin-right: 6px; vertical-align: 1px; }
+.dot-live.off { background: #9ca3af; }
+
+/* ── 레이아웃 ── */
+main { max-width: 1480px; margin: 0 auto; padding: 16px 24px 48px; }
+.section-title { display: flex; align-items: baseline; gap: 10px; margin: 28px 0 12px; padding-left: 10px; border-left: 4px solid var(--brand-2); }
+.section-title h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--brand); }
+.section-title span { color: var(--text-2); font-size: 13px; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.span-2 { grid-column: span 2; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; min-width: 0; }
+.card h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.card .q { margin: 2px 0 0; color: var(--text-2); font-size: 12.5px; }
+.card .note { margin: 6px 0 0; font-size: 12.5px; color: var(--text-1); background: var(--brand-soft); border-radius: 6px; padding: 6px 10px; }
+.chart { width: 100%; height: 340px; margin-top: 8px; }
+.chart.h-sm { height: 280px; }
+.chart.h-lg { height: 420px; }
+
+/* ── 필터 ── */
+.filters { position: sticky; top: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; }
+.filters-head { display: none; align-items: center; justify-content: space-between; }
+.filters-body { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; }
+.f-item { display: flex; flex-direction: column; gap: 3px; min-width: 150px; flex: 1 1 150px; position: relative; }
+.f-item label, .f-label { font-size: 11.5px; color: var(--text-2); font-weight: 600; }
+.f-period { flex: 2 1 330px; }
+.period-row { display: flex; gap: 6px; align-items: center; }
+.period-row select { flex: 1; }
+select, .ms-btn, input[type="search"] { height: 34px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--surface); padding: 0 10px; }
+.ms-btn { width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ms-btn .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-btn.active { border-color: var(--brand-2); background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+.ms-btn::after { content: "▾"; color: var(--text-3); font-size: 11px; }
+.ms-panel { position: absolute; top: 100%; left: 0; margin-top: 4px; width: max(100%, 250px); max-height: 340px; display: none; flex-direction: column; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 10px 28px rgba(16,24,40,.16); z-index: 40; }
+.ms-panel.open { display: flex; }
+.ms-tools { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
+.ms-tools input { flex: 1; min-width: 0; height: 30px; }
+.ms-tools button { border: 0; background: none; color: var(--brand-2); cursor: pointer; padding: 0 4px; font-size: 12px; white-space: nowrap; }
+.ms-list { overflow: auto; padding: 4px 0; }
+.ms-opt { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.ms-opt:hover { background: #f3f6fb; }
+.ms-opt .cnt { margin-left: auto; color: var(--text-3); font-size: 11.5px; }
+.ms-opt.zero { color: var(--text-3); }
+.quick { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.chip-btn { border: 1px solid var(--line); background: #f8fafc; border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+.chip-btn:hover { border-color: var(--brand-2); color: var(--brand-2); }
+.chip-btn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.active-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12.5px; }
+.active-row .lbl { color: var(--text-2); font-weight: 600; margin-right: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--brand-soft); color: var(--brand); border-radius: 999px; padding: 2px 4px 2px 10px; }
+.chip button { border: 0; background: none; cursor: pointer; color: var(--brand); font-size: 14px; line-height: 1; padding: 0 4px; }
+.active-row .reset { margin-left: auto; }
+.muted { color: var(--text-3); }
+
+/* ── 알림 ── */
+.banner { margin-top: 12px; border-radius: 8px; padding: 10px 14px; font-size: 13px; border: 1px solid var(--warn-line); background: var(--warn-bg); }
+.banner.ok { background: #effaf3; border-color: #a7dfbd; }
+.banner.err { background: #fdeeee; border-color: #f2b4b4; }
+.banner details { margin-top: 6px; }
+.banner summary { cursor: pointer; color: var(--brand-2); }
+.issue-list { max-height: 220px; overflow: auto; margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; }
+.loader { padding: 60px 20px; text-align: center; color: var(--text-2); }
+.onboard { max-width: 720px; margin: 40px auto; }
+.onboard h2 { margin: 0 0 8px; color: var(--brand); font-size: 18px; }
+.onboard ol { padding-left: 20px; }
+.onboard code { background: #eef2f7; padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+.drop-hint { margin-top: 14px; border: 2px dashed var(--line-strong); border-radius: 10px; padding: 22px; text-align: center; color: var(--text-2); }
+body.dragging .drop-hint { border-color: var(--brand-2); background: var(--brand-soft); }
+
+/* ── KPI ── */
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; border-top: 3px solid var(--brand-2); min-width: 0; }
+.kpi .k-label { font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+.kpi .k-value { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .k-value small { font-size: 13px; font-weight: 600; color: var(--text-2); margin-left: 3px; }
+.kpi .k-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .k-delta { font-size: 12.5px; margin-top: 6px; font-weight: 600; }
+.k-delta .up-bad, .k-delta .down-bad { color: var(--bad); }
+.k-delta .up-good, .k-delta .down-good { color: var(--good); }
+.k-delta .flat { color: var(--text-2); }
+.k-delta .cmp { color: var(--text-3); font-weight: 400; margin-left: 4px; }
+.kpi.unplan { border-top-color: var(--c-unplan); }
+
+/* ── 인사이트 ── */
+.insights { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.insight { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--brand-2); border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.insight .t { font-size: 11.5px; color: var(--text-2); font-weight: 700; }
+.insight b { color: var(--brand); }
+
+/* ── 표 ── */
+.table-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.table-tools input { flex: 1 1 220px; }
+.table-wrap { overflow: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { background: #f3f6fb; color: var(--text-2); font-weight: 700; position: sticky; top: 0; cursor: pointer; user-select: none; text-align: left; }
+th.r, td.r { text-align: right; }
+th .arrow { color: var(--brand-2); }
+tbody tr:hover { background: #f8fafc; }
+.tag { display: inline-block; padding: 0 7px; border-radius: 4px; font-size: 11.5px; font-weight: 600; }
+.tag.plan { background: #e6f0fc; color: #1c5cab; }
+.tag.unplan { background: #fdeee6; color: #a8431a; }
+.pager { display: flex; gap: 6px; align-items: center; justify-content: flex-end; margin-top: 10px; font-size: 12.5px; flex-wrap: wrap; }
+.pager button { min-width: 32px; height: 30px; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 6px; cursor: pointer; }
+.pager button:disabled { opacity: .4; cursor: default; }
+
+.legend-inline { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-top: 6px; }
+.legend-inline i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: #111827; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s; z-index: 100; max-width: calc(100% - 32px); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+footer { text-align: center; color: var(--text-3); font-size: 12px; padding: 20px; }
+
+/* ── 반응형 ── */
+@media (max-width: 1200px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+  .grid, .grid-3 { grid-template-columns: 1fr; }
+  .span-2 { grid-column: auto; }
+}
+@media (max-width: 768px) {
+  .topbar-inner, .subbar-inner { padding-left: 16px; padding-right: 16px; }
+  main { padding: 12px 16px 40px; }
+  .title-wrap h1 { font-size: 17px; }
+  .filters-head { display: flex; }
+  .filters:not(.open) .filters-body, .filters:not(.open) .active-row { display: none; }
+  .filters.open .filters-body { margin-top: 10px; }
+  .f-item { flex: 1 1 100%; }
+  .chart { height: 300px; }
+  .chart.h-lg { height: 360px; }
+}
+@media (max-width: 560px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi .k-value { font-size: 19px; }
+  .card { padding: 14px; }
+}
+@media print { .filters, .top-actions, .table-tools, .pager { display: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="logo" href="https://www.wamc.co.kr" target="_blank" rel="noopener" title="아진산업 홈페이지">
+      <span class="logo-mark">AJIN</span>
+      <span class="logo-name">아진산업<br/>AJIN INDUSTRIAL</span>
+    </a>
+    <div class="title-wrap">
+      <h1>차체공정 정비비 지표현황</h1>
+      <p>어디서, 무엇 때문에, 얼마가 새고 있는지 한눈에 — 생산성 향상을 위한 설비보전 대시보드</p>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-ghost" id="btnReload" title="data.xlsx 다시 읽기">↻ 새로고침</button>
+      <button class="btn btn-ghost" id="btnOpen" title="엑셀 파일 직접 선택">엑셀 열기</button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden />
+    </div>
+  </div>
+  <div class="subbar"><div class="subbar-inner" id="dataInfo">데이터 불러오는 중…</div></div>
+</header>
+
+<main>
+  <div id="loader" class="loader">data.xlsx 데이터를 불러오는 중입니다…</div>
+  <div id="onboard" class="onboard card" hidden></div>
+
+  <div id="app" hidden>
+    <!-- 필터 -->
+    <section class="filters" id="filters">
+      <div class="filters-head">
+        <b>필터</b>
+        <button class="btn" id="btnToggleFilters">필터 열기</button>
+      </div>
+      <div class="filters-body" id="filtersBody">
+        <div class="f-item f-period">
+          <span class="f-label">기간 (연월)</span>
+          <div class="period-row">
+            <select id="fromYm" aria-label="시작 연월"></select>
+            <span class="muted">~</span>
+            <select id="toYm" aria-label="종료 연월"></select>
+          </div>
+          <div class="quick" id="quickPeriods"></div>
+        </div>
+      </div>
+      <div class="active-row" id="activeRow"></div>
+    </section>
+
+    <div id="qualityBanner"></div>
+
+    <!-- KPI -->
+    <section class="kpis" id="kpis"></section>
+    <section class="insights" id="insights"></section>
+
+    <!-- 1. 추세 -->
+    <div class="section-title"><h2>1. 추세</h2><span>언제 늘었나 — 월·분기·연도 흐름과 계절성</span></div>
+    <div class="grid">
+      <div class="card span-2">
+        <h3>월별 정비비 추이</h3>
+        <p class="q">총정비비와 비계획(긴급정비·돌발복구) 정비비가 월별로 어떻게 움직이나? · 하단 슬라이더로 구간 확대</p>
+        <div class="chart" id="chMonthly"></div>
+      </div>
+      <div class="card">
+        <h3>연도별 정비비와 전년 대비 증감률</h3>
+        <p class="q">해마다 정비비가 늘고 있나? (막대 위 숫자 = 전년 대비 증감률)</p>
+        <div class="chart h-sm" id="chYearly"></div>
+      </div>
+      <div class="card">
+        <h3>분기별 정비비</h3>
+        <p class="q">분기 단위로 보면 언제 튀었나? (툴팁에 전분기·전년동기 대비)</p>
+        <div class="chart h-sm" id="chQuarterly"></div>
+      </div>
+      <div class="card span-2">
+        <h3>계절성 — 월별 패턴 (연도 비교)</h3>
+        <p class="q">매년 정비비가 몰리는 달이 있나? 같은 달을 연도별로 겹쳐 봅니다.</p>
+        <div class="chart h-sm" id="chSeason"></div>
+      </div>
+    </div>
+
+    <!-- 2. 어디서 -->
+    <div class="section-title"><h2>2. 어디서</h2><span>어느 라인·설비에 비용이 몰리나 — 막대를 클릭하면 필터로 적용</span></div>
+    <div class="grid">
+      <div class="card">
+        <h3>생산라인별 정비비</h3>
+        <p class="q">어느 라인이 가장 많이 쓰고, 그중 비계획 비용은 얼마인가?</p>
+        <div class="chart" id="chLine"></div>
+      </div>
+      <div class="card">
+        <h3>설비별 정비비 상위 10</h3>
+        <p class="q">비용이 가장 큰 설비 10개 (계획/비계획 구분)</p>
+        <div class="chart" id="chTop10"></div>
+      </div>
+      <div class="card span-2">
+        <h3>설비 정비비 파레토</h3>
+        <p class="q">소수 설비가 비용 대부분을 차지하나? (막대 = 설비별 비중, 선 = 누적 비중)</p>
+        <p class="note" id="paretoNote"></p>
+        <div class="chart" id="chPareto"></div>
+      </div>
+      <div class="card span-2">
+        <h3>사업장 간 같은 설비의 건당 정비비 비교</h3>
+        <p class="q">같은 설비인데 사업장마다 건당 비용이 다른가? (차이가 큰 설비 순, 최대 12개)</p>
+        <div class="chart h-lg" id="chSiteCmp"></div>
+      </div>
+    </div>
+
+    <!-- 3. 무엇 때문에 -->
+    <div class="section-title"><h2>3. 무엇 때문에</h2><span>어떤 작업·유형·비용 항목이 원인인가 — 조각을 클릭하면 필터로 적용</span></div>
+    <div class="grid-3">
+      <div class="card">
+        <h3>작업구분별 정비비 분포</h3>
+        <p class="q">계획(파랑) vs 비계획(주황) 비용 구성</p>
+        <div class="chart h-sm" id="chWtype"></div>
+      </div>
+      <div class="card">
+        <h3>정비유형별 정비비 분포</h3>
+        <p class="q">어떤 정비유형에 돈이 들어가나?</p>
+        <div class="chart h-sm" id="chMtype"></div>
+      </div>
+      <div class="card">
+        <h3>인건비 vs 부품비 구성</h3>
+        <p class="q">인건비 = 정산공수 × 시간당 단가</p>
+        <div class="chart h-sm" id="chCostMix"></div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:16px">
+      <div class="card">
+        <h3>설비별 부품비 비율 상위 15</h3>
+        <p class="q">총정비비 중 부품비 비중이 높은 설비 — 부품 단가·재고 관리 대상</p>
+        <div class="chart h-lg" id="chPartsRatio"></div>
+      </div>
+      <div class="card">
+        <h3>정비유형 × 생산라인 정비비 히트맵</h3>
+        <p class="q">라인별로 어떤 정비유형에 비용이 집중되나? (진할수록 큼, 단위 천원)</p>
+        <div class="chart h-lg" id="chHeatType"></div>
+      </div>
+    </div>
+
+    <!-- 4. 비계획·긴급 -->
+    <div class="section-title"><h2>4. 비계획·긴급</h2><span>돌발 고장으로 새는 비용 — 예방보전으로 줄일 수 있는 영역</span></div>
+    <div class="grid">
+      <div class="card">
+        <h3>설비별 비계획 비중과 정비비</h3>
+        <p class="q">비계획 비중도 높고 비용도 큰 설비(오른쪽 위, 주황) = 집중관리 대상 · 원 크기 = 작업건수</p>
+        <div class="chart" id="chUnplanScatter"></div>
+      </div>
+      <div class="card">
+        <h3>설비분류별 긴급가산 추가비용</h3>
+        <p class="q">긴급가산율 때문에 추가로 지출된 비용 (= 표준공수 × 투입인원 × 긴급가산율 × 단가)</p>
+        <div class="chart" id="chSurcharge"></div>
+      </div>
+      <div class="card span-2">
+        <h3>연월 × 생산라인 비계획 비중 히트맵</h3>
+        <p class="q">어느 라인에서 언제 비계획 작업(건수 기준)이 많았나? (진할수록 높음)</p>
+        <div class="chart" id="chHeatUnplan"></div>
+      </div>
+      <div class="card span-2">
+        <h3>예방보전 효과 — 예방점검 비중 vs 고장수리·돌발복구 비용 비중</h3>
+        <p class="q">예방점검을 많이 한 설비일수록 고장·돌발 비용 비중이 낮은가? (점 = 설비 × 연도, 5건 이상)</p>
+        <p class="note" id="preventNote"></p>
+        <div class="chart" id="chPrevent"></div>
+      </div>
+    </div>
+
+    <!-- 5. 통계·상관 -->
+    <div class="section-title"><h2>5. 통계·상관</h2><span>이상치와 비용 결정 요인</span></div>
+    <div class="grid">
+      <div class="card span-2">
+        <h3>설비별 건당 정비비 분포 (박스플롯)</h3>
+        <p class="q">건당 비용의 산포가 크거나 이상치(빨간 점)가 많은 설비는? (중앙값 큰 순)</p>
+        <div class="chart" id="chBox" style="height:640px"></div>
+      </div>
+      <div class="card span-2">
+        <h3>표준인시(표준공수 × 투입인원) vs 총정비비</h3>
+        <p class="q">작업 규모와 비용은 얼마나 비례하나? 같은 규모에서 위로 뜬 점 = 긴급가산·부품비가 큰 작업</p>
+        <p class="note" id="scatterNote"></p>
+        <div class="chart" id="chManhour"></div>
+      </div>
+    </div>
+
+    <!-- 6. 상세 데이터 -->
+    <div class="section-title"><h2>6. 상세 데이터</h2><span>현재 필터가 적용된 작업 목록</span></div>
+    <div class="card">
+      <div class="table-tools">
+        <input type="search" id="tableSearch" placeholder="작업ID·설비명·라인 등 검색" />
+        <button class="btn btn-primary" id="btnCsv">CSV 다운로드</button>
+      </div>
+      <div class="table-wrap"><table id="detailTable"></table></div>
+      <div class="pager" id="pager"></div>
+    </div>
+  </div>
+</main>
+
+<footer>아진산업 · 차체공정 정비비 지표현황 · 금액 단위: 천원 · 담당자 정보는 개인정보 보호를 위해 표시하지 않습니다.</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   설정값 — 필요하면 여기만 수정
+   ══════════════════════════════════════════════════════════════ */
+const HOURLY_RATE = 60;                              // 시간당 단가(천원)
+const UNPLANNED_TYPES = ['긴급정비', '돌발복구'];      // 비계획 작업구분
+const PLANNED_TYPES = ['계획정비', '정기보전'];        // 계획 작업구분
+const DATA_FILE = 'data.xlsx';                        // 같은 폴더의 데이터 파일
+const DATA_SHEET = 'data';                            // 읽을 시트 이름 (없으면 필수 컬럼이 있는 첫 시트)
+const AUTO_REFRESH_SEC = 60;                          // data.xlsx 변경 확인 주기(초)
+const SITE_PREFIX = '아진산업 ';                       // 화면 표시 때 떼어낼 사업장 접두어
+const MISMATCH_TOLERANCE = 0.01;                      // 엑셀 값과 산식 값 비교 허용오차
+
+/* ══════════════════════════════════════════════════════════════
+   색상 — CSS 토큰과 동일. 의미가 고정된 색은 모든 차트에서 같게 쓴다.
+   ══════════════════════════════════════════════════════════════ */
+const C = {
+  plan: '#2a78d6', unplan: '#eb6834', total: '#0d366b',
+  brand: '#0b2d5b', brand2: '#0068b7',
+  text1: '#111827', text2: '#4b5563', text3: '#8a94a6', grid: '#e8ecf2', axis: '#c5cdd9',
+  bad: '#d03b3b', labor: '#256abf', parts: '#eda100',
+  wtype: { '계획정비': '#2a78d6', '정기보전': '#86b6ef', '긴급정비': '#eb6834', '돌발복구': '#a8431a' },
+  mtype: ['#1baf7a', '#eda100', '#e87ba4', '#6250d6', '#008300', '#7a8699'],
+  site: ['#0068b7', '#1baf7a', '#6250d6', '#eda100'],
+  seqBlue: ['#eef5fd', '#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'],
+  seqOrange: ['#fff4ee', '#fde0d0', '#f9bc9c', '#f4935f', '#eb6834', '#c95120', '#a8431a', '#7a2f10'],
+  yearRamp: ['#b7d3f6', '#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#104281', '#0d366b'],
+};
+const FONT = '"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
+
+/* 필터 차원 정의 (rowKey = 정제된 행의 속성 이름) */
+const DIMS = [
+  { key: 'site',  col: '사업장',   label: '사업장' },
+  { key: 'line',  col: '생산라인', label: '생산라인' },
+  { key: 'cat',   col: '설비분류', label: '설비분류' },
+  { key: 'equip', col: '설비명',   label: '설비명' },
+  { key: 'mtype', col: '정비유형', label: '정비유형' },
+  { key: 'wtype', col: '작업구분', label: '작업구분' },
+];
+const REQUIRED_COLS = ['작업일자', '사업장', '생산라인', '설비분류', '설비명', '정비유형', '작업구분',
+  '투입인원', '표준공수(시간)', '긴급가산율', '부품비(천원)'];
+
+/* ══════════════════════════════════════════════════════════════
+   상태
+   ══════════════════════════════════════════════════════════════ */
+const state = {
+  rows: [], issues: [], mismatch: { mh: 0, cost: 0 }, totalRaw: 0, sheetName: '',
+  yms: [], from: null, to: null,
+  filters: Object.fromEntries(DIMS.map(d => [d.key, new Set()])),
+  source: null,          // 'server' | 'handle' | 'file'
+  signature: null, fileHandle: null, loadedAt: null, fileModified: null,
+  table: { sortKey: 'date', sortDir: -1, page: 1, pageSize: 20, search: '' },
+};
+const charts = {};
+
+/* ══════════════════════════════════════════════════════════════
+   유틸
+   ══════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf0 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const won = v => nf0.format(Math.round(v || 0));                 // 천원 금액
+const pct = (v, d = 1) => (isFinite(v) ? (v * 100).toFixed(d) : '-') + '%';
+const sum = (arr, f) => arr.reduce((s, r) => s + f(r), 0);
+const ymLabel = ym => ym.replace('-', '.');
+const displaySite = s => s.startsWith(SITE_PREFIX) ? s.slice(SITE_PREFIX.length) : s;
+const isUnplanned = w => UNPLANNED_TYPES.includes(w);
+
+function groupBy(rows, keyFn) {
+  const m = new Map();
+  for (const r of rows) { const k = keyFn(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); }
+  return m;
+}
+function agg(rows) {
+  const a = { n: rows.length, cost: 0, parts: 0, labor: 0, surcharge: 0, un: 0, unCost: 0, manhour: 0 };
+  for (const r of rows) {
+    a.cost += r.cost; a.parts += r.parts; a.labor += r.cost - r.parts; a.surcharge += r.surcharge; a.manhour += r.mh;
+    if (r.unplanned) { a.un++; a.unCost += r.cost; }
+  }
+  a.perCase = a.n ? a.cost / a.n : 0;
+  a.unRate = a.n ? a.un / a.n : 0;
+  a.planCost = a.cost - a.unCost;
+  return a;
+}
+function quantile(sorted, p) {
+  if (!sorted.length) return NaN;
+  const i = (sorted.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+function pearson(xs, ys) {
+  const n = xs.length; if (n < 3) return NaN;
+  const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < n; i++) { const dx = xs[i] - mx, dy = ys[i] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : NaN;
+}
+function linreg(xs, ys) {
+  const n = xs.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0, sxx = 0;
+  for (let i = 0; i < n; i++) { sxy += (xs[i] - mx) * (ys[i] - my); sxx += (xs[i] - mx) ** 2; }
+  const b = sxx ? sxy / sxx : 0; return { a: my - b * mx, b };
+}
+function rDesc(r) {
+  const a = Math.abs(r);
+  const s = a >= 0.7 ? '강한' : a >= 0.4 ? '뚜렷한' : a >= 0.2 ? '약한' : '거의 없는';
+  if (a < 0.2) return '상관관계가 거의 없음';
+  return `${s} ${r > 0 ? '양(+)의' : '음(-)의'} 상관관계`;
+}
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function ymRange(a, b) {
+  const out = []; let [y, m] = a.split('-').map(Number); const [y2, m2] = b.split('-').map(Number);
+  while (y < y2 || (y === y2 && m <= m2)) { out.push(`${y}-${pad(m)}`); m++; if (m > 12) { m = 1; y++; } }
+  return out;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   데이터 로딩 — 같은 폴더의 data.xlsx를 읽고, 주기적으로 변경 여부를 확인
+   ══════════════════════════════════════════════════════════════ */
+async function loadFromServer(silent) {
+  const res = await fetch(`${DATA_FILE}?v=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  const sig = [res.headers.get('last-modified'), res.headers.get('etag'), buf.byteLength].join('|');
+  state.signature = sig;
+  state.fileModified = res.headers.get('last-modified') ? new Date(res.headers.get('last-modified')) : null;
+  state.source = 'server';
+  ingest(buf, DATA_FILE, silent);
+}
+async function checkServerChange() {
+  try {
+    let res = await fetch(`${DATA_FILE}?v=${Date.now()}`, { method: 'HEAD', cache: 'no-store' });
+    let sig;
+    if (res.ok && (res.headers.get('last-modified') || res.headers.get('etag'))) {
+      // HEAD 응답에는 본문이 없으므로 content-length로 크기를 비교
+      sig = [res.headers.get('last-modified'), res.headers.get('etag'), Number(res.headers.get('content-length'))].join('|');
+    } else {
+      res = await fetch(`${DATA_FILE}?v=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const buf = await res.arrayBuffer();
+      sig = [res.headers.get('last-modified'), res.headers.get('etag'), buf.byteLength].join('|');
+      if (sig !== state.signature) { state.signature = sig; ingest(buf, DATA_FILE, true); toast('data.xlsx가 변경되어 대시보드를 갱신했습니다.'); }
+      updateInfo(); return;
+    }
+    if (sig !== state.signature) { await loadFromServer(true); toast('data.xlsx가 변경되어 대시보드를 갱신했습니다.'); }
+    updateInfo();
+  } catch (e) { /* 일시적 네트워크 오류는 무시 */ }
+}
+async function checkHandleChange() {
+  if (!state.fileHandle) return;
+  try {
+    const f = await state.fileHandle.getFile();
+    if (f.lastModified !== state.fileModified?.getTime()) { await loadFile(f, true); toast(`${f.name}이(가) 변경되어 대시보드를 갱신했습니다.`); }
+    updateInfo();
+  } catch (e) { /* 권한 만료 등 */ }
+}
+async function loadFile(file, silent) {
+  const buf = await file.arrayBuffer();
+  state.fileModified = new Date(file.lastModified);
+  ingest(buf, file.name, silent);
+}
+setInterval(() => {
+  if (state.source === 'server') checkServerChange();
+  else if (state.source === 'handle') checkHandleChange();
+}, AUTO_REFRESH_SEC * 1000);
+
+async function openFileDialog() {
+  if (window.showOpenFilePicker) {
+    try {
+      const [h] = await window.showOpenFilePicker({ types: [{ description: 'Excel', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xls'] } }] });
+      state.fileHandle = h; state.source = 'handle'; await loadFile(await h.getFile()); return;
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  $('fileInput').click();
+}
+$('fileInput').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  state.fileHandle = null; state.source = 'file'; await loadFile(f); e.target.value = '';
+});
+$('btnOpen').addEventListener('click', openFileDialog);
+$('btnReload').addEventListener('click', async () => {
+  try {
+    if (state.source === 'handle' && state.fileHandle) await loadFile(await state.fileHandle.getFile(), true);
+    else if (state.source === 'file') { toast('직접 선택한 파일은 [엑셀 열기]로 다시 선택해 주세요.'); return; }
+    else await loadFromServer(true);
+    toast('데이터를 다시 읽었습니다.'); updateInfo();
+  } catch (e) { toast('data.xlsx를 읽지 못했습니다: ' + e.message); }
+});
+['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); document.body.classList.add('dragging'); }));
+['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if (ev === 'drop' || !e.relatedTarget) document.body.classList.remove('dragging'); }));
+document.addEventListener('drop', async e => {
+  const f = e.dataTransfer?.files?.[0]; if (!f) return;
+  state.fileHandle = null; state.source = 'file'; await loadFile(f);
+});
+
+function showOnboard(reason) {
+  $('loader').hidden = true;
+  const ob = $('onboard'); ob.hidden = false;
+  const isFile = location.protocol === 'file:';
+  ob.innerHTML = `
+    <h2>data.xlsx를 자동으로 불러오지 못했습니다</h2>
+    <p class="muted">${esc(reason)}</p>
+    ${isFile ? `<p>브라우저 보안 정책 때문에 <b>파일을 더블클릭해서 연 페이지(file://)</b>는 같은 폴더의 파일을 자동으로 읽을 수 없습니다.</p>` : ''}
+    <ol>
+      <li><b>권장 — 웹서버로 열기:</b> index.html과 data.xlsx가 있는 폴더에서 <code>python -m http.server 8000</code> 실행 후
+        <code>http://localhost:8000</code> 접속. 사내 웹서버·공유 웹폴더에 두 파일을 함께 올려도 됩니다.
+        이 방식이면 data.xlsx를 덮어쓸 때 ${AUTO_REFRESH_SEC}초 안에 화면이 자동 갱신됩니다.</li>
+      <li><b>바로 보기 — 파일 선택:</b> 아래 버튼으로 data.xlsx를 선택하거나 이 화면에 끌어다 놓으세요.
+        Chrome·Edge에서 [엑셀 열기]로 선택하면 파일이 바뀔 때 자동 갱신됩니다.</li>
+    </ol>
+    <div class="drop-hint">여기에 data.xlsx를 끌어다 놓거나 <button class="btn btn-primary" id="btnOnboardOpen">엑셀 파일 선택</button></div>`;
+  $('btnOnboardOpen').addEventListener('click', openFileDialog);
+  $('dataInfo').innerHTML = `<span><span class="dot-live off"></span>데이터 없음</span>`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   파싱·정제
+   - 필수 컬럼이 시트에 없으면: 오류 화면 (어떤 컬럼이 없는지 안내)
+   - 필수 값이 비었거나 날짜·숫자를 해석할 수 없는 행: 분석에서 제외하고
+     상단 배너에 제외 건수와 행 번호·사유를 안내
+   - 긴급가산율·부품비 빈 값 = 0, 정산공수·총정비비 빈 값 = 산식으로 계산
+   - 엑셀에 입력된 정산공수·총정비비가 산식과 다르면 엑셀 값을 쓰고 불일치 건수를 안내
+   ══════════════════════════════════════════════════════════════ */
+function parseDate(v) {
+  let y, m, d;
+  if (typeof v === 'number' && isFinite(v)) {
+    const p = XLSX.SSF.parse_date_code(v); if (!p) return null; y = p.y; m = p.m; d = p.d;
+  } else if (v instanceof Date && !isNaN(v)) {
+    y = v.getFullYear(); m = v.getMonth() + 1; d = v.getDate();
+  } else if (typeof v === 'string') {
+    const s = v.trim();
+    let mt = s.match(/^(\d{4})[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})/) || s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (!mt) return null; y = +mt[1]; m = +mt[2]; d = +mt[3];
+  } else return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return { y, m, d };
+}
+function toNum(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return isFinite(v) ? v : NaN;
+  const s = String(v).replace(/,/g, '').replace(/%$/, '').trim();
+  if (s === '') return null;
+  const n = Number(s); return isFinite(n) ? n : NaN;
+}
+function pickSheet(wb) {
+  if (wb.Sheets[DATA_SHEET]) return DATA_SHEET;
+  for (const name of wb.SheetNames) {
+    const head = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, range: 0 })[0] || [];
+    if (head.map(h => String(h).trim()).includes('작업일자')) return name;
+  }
+  return wb.SheetNames[0];
+}
+function parseWorkbook(buf) {
+  const wb = XLSX.read(buf, { type: 'array' });
+  const sheetName = pickSheet(wb);
+  const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null, raw: true });
+  const rows = raw.map(r => { const o = {}; for (const k in r) o[String(k).trim()] = r[k]; return o; });
+  const cols = new Set(rows.length ? Object.keys(rows[0]) : (XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1 })[0] || []).map(h => String(h).trim()));
+  const missing = REQUIRED_COLS.filter(c => !cols.has(c));
+  if (missing.length) throw new Error(`시트 '${sheetName}'에 필수 컬럼이 없습니다: ${missing.join(', ')}`);
+
+  const out = [], issues = [], mismatch = { mh: 0, cost: 0 };
+  rows.forEach((r, i) => {
+    const rowNo = i + 2; // 엑셀 행 번호 (1행 = 머리글)
+    const errs = [];
+    const date = parseDate(r['작업일자']);
+    if (!date) errs.push(r['작업일자'] == null || r['작업일자'] === '' ? '작업일자 없음' : `작업일자 해석 불가(${r['작업일자']})`);
+    const txt = {};
+    for (const d of DIMS) {
+      const v = r[d.col] == null ? '' : String(r[d.col]).trim();
+      if (!v) errs.push(`${d.col} 없음`);
+      txt[d.key] = v;
+    }
+    const people = toNum(r['투입인원']), std = toNum(r['표준공수(시간)']);
+    let rate = toNum(r['긴급가산율']), parts = toNum(r['부품비(천원)']);
+    if (people === null || isNaN(people) || people < 0) errs.push('투입인원 오류');
+    if (std === null || isNaN(std) || std < 0) errs.push('표준공수 오류');
+    if (rate === null) rate = 0; else if (isNaN(rate) || rate < 0) errs.push('긴급가산율 오류');
+    if (parts === null) parts = 0; else if (isNaN(parts) || parts < 0) errs.push('부품비 오류');
+    if (errs.length) { issues.push({ rowNo, id: r['정비작업ID'] || '', reason: errs.join(', ') }); return; }
+
+    const mhCalc = std * people * (1 + rate);
+    const mhIn = toNum(r['정산공수(시간)']);
+    const mh = (mhIn === null || isNaN(mhIn)) ? mhCalc : mhIn;
+    if (mhIn !== null && !isNaN(mhIn) && Math.abs(mhIn - mhCalc) > MISMATCH_TOLERANCE) mismatch.mh++;
+    const costCalc = mh * HOURLY_RATE + parts;
+    const costIn = toNum(r['총정비비(천원)']);
+    const cost = (costIn === null || isNaN(costIn)) ? costCalc : costIn;
+    if (costIn !== null && !isNaN(costIn) && Math.abs(costIn - costCalc) > MISMATCH_TOLERANCE) mismatch.cost++;
+
+    out.push({
+      id: r['정비작업ID'] ? String(r['정비작업ID']).trim() : `ROW-${rowNo}`,
+      date: `${date.y}-${pad(date.m)}-${pad(date.d)}`, y: date.y, m: date.m, ym: `${date.y}-${pad(date.m)}`,
+      q: `${date.y} Q${Math.ceil(date.m / 3)}`,
+      site: displaySite(txt.site), line: txt.line, cat: txt.cat, equip: txt.equip, mtype: txt.mtype, wtype: txt.wtype,
+      people, std, rate, mh, parts, cost,
+      stdMh: std * people,
+      surcharge: std * people * rate * HOURLY_RATE,
+      unplanned: isUnplanned(txt.wtype),
+    });
+    // 담당자·Source.Name 컬럼은 개인정보 보호·불필요 정보로 읽지 않음
+  });
+  return { rows: out, issues, mismatch, totalRaw: rows.length, sheetName };
+}
+
+function ingest(buf, name, silent) {
+  let parsed;
+  try { parsed = parseWorkbook(buf); }
+  catch (e) { if (!state.rows.length) showOnboard(e.message); else toast('데이터 오류: ' + e.message); return; }
+  const prev = state.yms.length ? { from: state.from, to: state.to, min: state.yms[0], max: state.yms[state.yms.length - 1] } : null;
+  Object.assign(state, parsed);
+  state.loadedAt = new Date(); state.fileName = name;
+  if (!state.rows.length) { showOnboard('읽을 수 있는 데이터 행이 없습니다.'); return; }
+  const yms = state.rows.map(r => r.ym).sort();
+  state.yms = ymRange(yms[0], yms[yms.length - 1]);
+  const min = state.yms[0], max = state.yms[state.yms.length - 1];
+  // 갱신 시 기존 기간 선택 유지 (전체 기간이었으면 새 범위로 확장)
+  if (!prev || (prev.from === prev.min && prev.to === prev.max)) { state.from = min; state.to = max; }
+  else { state.from = state.yms.includes(prev.from) ? prev.from : min; state.to = state.yms.includes(prev.to) ? prev.to : max; }
+  // 사라진 값은 필터에서 제거
+  for (const d of DIMS) {
+    const vals = new Set(state.rows.map(r => r[d.key]));
+    for (const v of [...state.filters[d.key]]) if (!vals.has(v)) state.filters[d.key].delete(v);
+  }
+  $('loader').hidden = true; $('onboard').hidden = true; $('app').hidden = false;
+  buildFilterUI();
+  renderQuality();
+  updateInfo();
+  renderAll();
+}
+
+function updateInfo() {
+  if (!state.rows.length) return;
+  const src = state.source === 'server' ? `<span class="dot-live"></span>${esc(DATA_FILE)} 자동 갱신 중 (${AUTO_REFRESH_SEC}초마다 확인)`
+    : state.source === 'handle' ? `<span class="dot-live"></span>${esc(state.fileName)} 자동 갱신 중 (${AUTO_REFRESH_SEC}초마다 확인)`
+    : `<span class="dot-live off"></span>${esc(state.fileName)} (직접 선택 — 자동 갱신 안 됨)`;
+  const t = d => d ? `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` : '-';
+  $('dataInfo').innerHTML = `<span>${src}</span>
+    <span>분석 대상 <b class="num">${won(state.rows.length)}</b>건${state.issues.length ? ` (제외 ${won(state.issues.length)}건)` : ''}</span>
+    <span>데이터 기간 <b>${ymLabel(state.yms[0])} ~ ${ymLabel(state.yms[state.yms.length - 1])}</b></span>
+    <span>파일 수정 ${t(state.fileModified)}</span>
+    <span>불러온 시각 ${t(state.loadedAt)}</span>`;
+}
+
+function renderQuality() {
+  const b = $('qualityBanner'), n = state.issues.length, mm = state.mismatch;
+  if (!n && !mm.mh && !mm.cost) {
+    b.innerHTML = `<div class="banner ok">✓ 데이터 검증 완료 — 시트 '${esc(state.sheetName)}' ${won(state.totalRaw)}행 모두 분석에 반영했습니다. 빈 정산공수·총정비비는 산식으로 계산했습니다.</div>`;
+    return;
+  }
+  const parts = [];
+  if (n) parts.push(`<b>${won(n)}건</b>은 필수 값 누락·날짜 오류로 분석에서 제외했습니다`);
+  if (mm.mh || mm.cost) parts.push(`엑셀에 입력된 값이 산식과 다른 행: 정산공수 ${won(mm.mh)}건, 총정비비 ${won(mm.cost)}건 (엑셀 값 사용)`);
+  b.innerHTML = `<div class="banner">⚠ 데이터 점검: ${parts.join(' · ')}.
+    ${n ? `<details><summary>제외된 행 보기</summary><ol class="issue-list">${state.issues.slice(0, 200).map(i =>
+      `<li>엑셀 ${i.rowNo}행${i.id ? ` (${esc(i.id)})` : ''}: ${esc(i.reason)}</li>`).join('')}${n > 200 ? `<li>… 외 ${n - 200}건</li>` : ''}</ol></details>` : ''}</div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   필터
+   ══════════════════════════════════════════════════════════════ */
+function inPeriod(r) { return r.ym >= state.from && r.ym <= state.to; }
+function passDims(r, except) {
+  for (const d of DIMS) {
+    if (d.key === except) continue;
+    const s = state.filters[d.key];
+    if (s.size && !s.has(r[d.key])) return false;
+  }
+  return true;
+}
+function filtered() { return state.rows.filter(r => inPeriod(r) && passDims(r)); }
+function dimOptions(key) {
+  let base = state.rows;
+  // 설비명은 선택한 설비분류에 속한 것만 보여줌
+  if (key === 'equip' && state.filters.cat.size) base = base.filter(r => state.filters.cat.has(r.cat));
+  const order = key === 'wtype' ? [...PLANNED_TYPES, ...UNPLANNED_TYPES] : null;
+  const vals = [...new Set(base.map(r => r[key]))];
+  vals.sort((a, b) => {
+    if (order) { const ia = order.indexOf(a), ib = order.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b, 'ko'); }
+    return a.localeCompare(b, 'ko');
+  });
+  return vals;
+}
+function pruneEquip() {
+  if (!state.filters.cat.size) return;
+  const ok = new Set(state.rows.filter(r => state.filters.cat.has(r.cat)).map(r => r.equip));
+  for (const v of [...state.filters.equip]) if (!ok.has(v)) state.filters.equip.delete(v);
+}
+
+let filterUIBuilt = false;
+function buildFilterUI() {
+  const body = $('filtersBody');
+  if (!filterUIBuilt) {
+    for (const d of DIMS) {
+      const w = document.createElement('div');
+      w.className = 'f-item'; w.dataset.key = d.key;
+      w.innerHTML = `<label>${d.label}</label>
+        <button class="ms-btn" type="button" aria-haspopup="listbox"><span class="v">전체</span></button>
+        <div class="ms-panel" role="listbox" aria-multiselectable="true">
+          <div class="ms-tools"><input type="search" placeholder="검색" /><button type="button" data-act="all">전체선택</button><button type="button" data-act="none">해제</button></div>
+          <div class="ms-list"></div>
+        </div>`;
+      body.appendChild(w);
+      const btn = w.querySelector('.ms-btn'), panel = w.querySelector('.ms-panel'), search = w.querySelector('input');
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const open = !panel.classList.contains('open');
+        document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+        if (open) { panel.classList.add('open'); search.value = ''; renderOptions(d.key); search.focus(); }
+      });
+      panel.addEventListener('click', e => e.stopPropagation());
+      search.addEventListener('input', () => renderOptions(d.key));
+      panel.querySelector('[data-act="all"]').addEventListener('click', () => {
+        const q = search.value.trim(); dimOptions(d.key).filter(v => !q || v.includes(q)).forEach(v => state.filters[d.key].add(v));
+        onFilterChange(d.key); renderOptions(d.key);
+      });
+      panel.querySelector('[data-act="none"]').addEventListener('click', () => { state.filters[d.key].clear(); onFilterChange(d.key); renderOptions(d.key); });
+    }
+    document.addEventListener('click', () => document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open')));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open')); });
+    $('fromYm').addEventListener('change', () => setPeriod($('fromYm').value, state.to));
+    $('toYm').addEventListener('change', () => setPeriod(state.from, $('toYm').value));
+    $('btnToggleFilters').addEventListener('click', () => {
+      const f = $('filters'); f.classList.toggle('open');
+      $('btnToggleFilters').textContent = f.classList.contains('open') ? '필터 닫기' : '필터 열기';
+    });
+    filterUIBuilt = true;
+  }
+  const opts = state.yms.map(ym => `<option value="${ym}">${ymLabel(ym)}</option>`).join('');
+  $('fromYm').innerHTML = opts; $('toYm').innerHTML = opts;
+  syncFilterUI();
+}
+function renderOptions(key) {
+  const w = document.querySelector(`.f-item[data-key="${key}"]`);
+  const q = w.querySelector('input').value.trim();
+  const sel = state.filters[key];
+  // 건수 = 다른 필터를 모두 적용했을 때 해당 값의 작업건수
+  const cnt = new Map();
+  for (const r of state.rows) if (inPeriod(r) && passDims(r, key)) cnt.set(r[key], (cnt.get(r[key]) || 0) + 1);
+  const list = w.querySelector('.ms-list');
+  const vals = dimOptions(key).filter(v => !q || v.includes(q));
+  list.innerHTML = vals.length ? vals.map(v => `<label class="ms-opt ${cnt.get(v) ? '' : 'zero'}">
+      <input type="checkbox" value="${esc(v)}" ${sel.has(v) ? 'checked' : ''}/> <span>${esc(v)}</span><span class="cnt num">${won(cnt.get(v) || 0)}</span></label>`).join('')
+    : '<div class="ms-opt muted">해당 항목 없음</div>';
+  list.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => {
+    cb.checked ? sel.add(cb.value) : sel.delete(cb.value);
+    onFilterChange(key);
+  }));
+}
+function onFilterChange(key) {
+  if (key === 'cat') pruneEquip();
+  state.table.page = 1;
+  syncFilterUI(); renderAll();
+}
+function setPeriod(a, b) {
+  if (a > b) [a, b] = [b, a];
+  state.from = a; state.to = b; state.table.page = 1;
+  syncFilterUI(); renderAll();
+}
+function setSingleFilter(key, value) {
+  const s = state.filters[key];
+  if (s.size === 1 && s.has(value)) { s.clear(); toast(`필터 해제: ${DIMS.find(d => d.key === key).label}`); }
+  else { s.clear(); s.add(value); toast(`필터 적용: ${DIMS.find(d => d.key === key).label} = ${value} (다시 클릭하면 해제)`); }
+  onFilterChange(key);
+}
+function syncFilterUI() {
+  for (const d of DIMS) {
+    const w = document.querySelector(`.f-item[data-key="${d.key}"]`); if (!w) continue;
+    const s = state.filters[d.key], btn = w.querySelector('.ms-btn');
+    btn.querySelector('.v').textContent = !s.size ? '전체' : s.size === 1 ? [...s][0] : `${[...s][0]} 외 ${s.size - 1}개`;
+    btn.classList.toggle('active', s.size > 0);
+    if (w.querySelector('.ms-panel.open')) renderOptions(d.key);
+  }
+  $('fromYm').value = state.from; $('toYm').value = state.to;
+  // 기간 빠른 선택
+  const years = [...new Set(state.yms.map(ym => ym.slice(0, 4)))];
+  const min = state.yms[0], max = state.yms[state.yms.length - 1];
+  const last12 = state.yms[Math.max(0, state.yms.length - 12)];
+  const quick = [{ t: '전체 기간', a: min, b: max }, ...years.map(y => ({ t: `${y}년`, a: state.yms.find(v => v.startsWith(y)), b: [...state.yms].reverse().find(v => v.startsWith(y)) })), { t: '최근 12개월', a: last12, b: max }];
+  $('quickPeriods').innerHTML = quick.map((q, i) => `<button class="chip-btn ${state.from === q.a && state.to === q.b ? 'on' : ''}" data-i="${i}">${q.t}</button>`).join('');
+  $('quickPeriods').querySelectorAll('button').forEach(bn => bn.addEventListener('click', () => { const q = quick[+bn.dataset.i]; setPeriod(q.a, q.b); }));
+  // 적용 중인 필터
+  const chips = [];
+  if (state.from !== min || state.to !== max) chips.push(`<span class="chip">기간: ${ymLabel(state.from)}~${ymLabel(state.to)}<button data-k="period" title="해제">×</button></span>`);
+  for (const d of DIMS) for (const v of state.filters[d.key]) chips.push(`<span class="chip">${d.label}: ${esc(v)}<button data-k="${d.key}" data-v="${esc(v)}" title="해제">×</button></span>`);
+  $('activeRow').innerHTML = `<span class="lbl">적용 중인 필터</span>${chips.length ? chips.join('') : '<span class="muted">없음 (전체 데이터)</span>'}
+    <button class="btn reset" id="btnReset">전체 초기화</button>`;
+  $('activeRow').querySelectorAll('.chip button').forEach(bn => bn.addEventListener('click', () => {
+    if (bn.dataset.k === 'period') { setPeriod(min, max); return; }
+    state.filters[bn.dataset.k].delete(bn.dataset.v); onFilterChange(bn.dataset.k);
+  }));
+  $('btnReset').addEventListener('click', () => {
+    DIMS.forEach(d => state.filters[d.key].clear());
+    state.from = min; state.to = max; state.table.page = 1; state.table.search = ''; $('tableSearch').value = '';
+    syncFilterUI(); renderAll(); toast('필터를 모두 초기화했습니다.');
+  });
+  const nAct = chips.length; $('btnToggleFilters').textContent = ($('filters').classList.contains('open') ? '필터 닫기' : '필터 열기') + (nAct ? ` (${nAct})` : '');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KPI — 값 = 선택 기간 전체 / 비교 = 선택 기간 마지막 연도의 같은 월 구간 vs 전년 동기
+   ══════════════════════════════════════════════════════════════ */
+function compareWindow() {
+  const [ty, tm] = state.to.split('-').map(Number);
+  const [fy, fm] = state.from.split('-').map(Number);
+  const m1 = fy === ty ? fm : 1, m2 = tm;
+  const base = state.rows.filter(r => passDims(r));
+  const cur = base.filter(r => r.y === ty && r.m >= m1 && r.m <= m2);
+  const prev = base.filter(r => r.y === ty - 1 && r.m >= m1 && r.m <= m2);
+  const hasPrev = state.yms.includes(`${ty - 1}-${pad(m1)}`);
+  return { cur: agg(cur), prev: agg(prev), hasPrev, label: `${ty}.${pad(m1)}~${pad(m2)} vs ${ty - 1}년 동기` };
+}
+function renderKPIs(rows) {
+  const a = agg(rows), cw = compareWindow();
+  const delta = (cur, prev, kind, costLike) => {
+    if (!cw.hasPrev) return `<span class="flat">전년 동기 데이터 없음</span>`;
+    if (kind === 'pp') {
+      const d = (cur - prev) * 100; const cls = Math.abs(d) < 0.05 ? 'flat' : d > 0 ? 'up-bad' : 'down-good';
+      return `<span class="${cls}">${d > 0 ? '▲' : d < 0 ? '▼' : '–'} ${Math.abs(d).toFixed(1)}%p</span><span class="cmp">${cw.label}</span>`;
+    }
+    if (!prev) return `<span class="flat">비교 불가</span><span class="cmp">${cw.label}</span>`;
+    const d = (cur - prev) / prev; const cls = Math.abs(d) < 0.0005 ? 'flat' : !costLike ? 'flat' : d > 0 ? 'up-bad' : 'down-good';
+    return `<span class="${cls}">${d > 0 ? '▲' : d < 0 ? '▼' : '–'} ${Math.abs(d * 100).toFixed(1)}%</span><span class="cmp">${cw.label}</span>`;
+  };
+  const eok = v => v >= 100000 ? `약 ${nf1.format(v / 100000)}억원` : `약 ${nf0.format(v / 1000)}백만원`;
+  const cards = [
+    { l: '총정비비', v: won(a.cost), u: '천원', s: eok(a.cost), d: delta(cw.cur.cost, cw.prev.cost, '%', true) },
+    { l: '작업건수', v: won(a.n), u: '건', s: `월평균 ${nf1.format(a.n / Math.max(1, ymRange(state.from, state.to).length))}건`, d: delta(cw.cur.n, cw.prev.n, '%', true) },
+    { l: '건당 정비비', v: won(a.perCase), u: '천원', s: `중앙값 ${won(quantile(rows.map(r => r.cost).sort((x, y) => x - y), .5) || 0)}천원`, d: delta(cw.cur.perCase, cw.prev.perCase, '%', true) },
+    { l: '비계획작업비중 (건수)', v: pct(a.unRate), u: '', s: `${won(a.un)}건 / ${won(a.n)}건`, d: delta(cw.cur.unRate, cw.prev.unRate, 'pp'), cls: 'unplan' },
+    { l: '긴급가산 추가비용', v: won(a.surcharge), u: '천원', s: `총정비비의 ${pct(a.cost ? a.surcharge / a.cost : NaN)}`, d: delta(cw.cur.surcharge, cw.prev.surcharge, '%', true), cls: 'unplan' },
+    { l: '부품비', v: won(a.parts), u: '천원', s: `총정비비의 ${pct(a.cost ? a.parts / a.cost : NaN)}`, d: delta(cw.cur.parts, cw.prev.parts, '%', true) },
+  ];
+  $('kpis').innerHTML = cards.map(c => `<div class="kpi ${c.cls || ''}">
+      <div class="k-label">${c.l}</div>
+      <div class="k-value num">${c.v}${c.u ? `<small>${c.u}</small>` : ''}</div>
+      <div class="k-sub">${c.s}</div>
+      <div class="k-delta">${c.d}</div></div>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   자동 인사이트
+   ══════════════════════════════════════════════════════════════ */
+function renderInsights(rows) {
+  const box = $('insights');
+  if (!rows.length) { box.innerHTML = ''; return; }
+  const total = agg(rows);
+  const byLine = [...groupBy(rows, r => r.line)].map(([k, v]) => ({ k, ...agg(v) })).sort((a, b) => b.cost - a.cost);
+  const byEq = [...groupBy(rows, r => r.equip)].map(([k, v]) => ({ k, ...agg(v) }));
+  const unTop = byEq.filter(e => e.n >= 10).sort((a, b) => b.unRate - a.unRate)[0];
+  const sorted = [...byEq].sort((a, b) => b.cost - a.cost);
+  const topN = Math.max(1, Math.ceil(sorted.length * 0.2));
+  const topShare = sum(sorted.slice(0, topN), e => e.cost) / total.cost;
+  const items = [
+    { t: '가장 많이 쓴 라인', h: `<b>${esc(byLine[0].k)}</b> ${won(byLine[0].cost)}천원 — 전체의 <b>${pct(byLine[0].cost / total.cost)}</b>` },
+    unTop ? { t: '비계획 비중이 가장 높은 설비 (10건 이상)', h: `<b>${esc(unTop.k)}</b> ${pct(unTop.unRate)} (${unTop.n}건 중 ${unTop.un}건)` } : null,
+    { t: '긴급가산으로 추가 지출', h: `<b>${won(total.surcharge)}천원</b> — 총정비비의 ${pct(total.surcharge / total.cost)}, 비계획 작업을 계획으로 돌리면 줄일 수 있는 비용` },
+    { t: '비용 집중도 (파레토)', h: `상위 20% 설비 <b>${topN}개</b>가 정비비의 <b>${pct(topShare)}</b>를 차지` },
+  ].filter(Boolean);
+  box.innerHTML = items.map(i => `<div class="insight"><div class="t">${i.t}</div>${i.h}</div>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   차트 공통
+   ══════════════════════════════════════════════════════════════ */
+function chart(id) {
+  if (!charts[id]) {
+    const el = $(id);
+    charts[id] = echarts.init(el, null, { renderer: 'canvas' });
+    new ResizeObserver(() => charts[id].resize()).observe(el);
+  }
+  return charts[id];
+}
+const isNarrow = () => window.innerWidth < 640;
+const baseText = { fontFamily: FONT, color: C.text2 };
+const tooltipBase = {
+  backgroundColor: '#fff', borderColor: '#dfe4ec', borderWidth: 1, padding: [8, 12],
+  textStyle: { color: C.text1, fontFamily: FONT, fontSize: 12.5 }, extraCssText: 'box-shadow:0 6px 20px rgba(16,24,40,.14);border-radius:8px;',
+  confine: true,
+};
+const axisCommon = {
+  axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false },
+  axisLabel: { color: C.text2, fontFamily: FONT, fontSize: 11.5 },
+  splitLine: { lineStyle: { color: C.grid } },
+  nameTextStyle: { color: C.text3, fontFamily: FONT, fontSize: 11 },
+};
+const legendBase = { top: 0, right: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10, textStyle: { color: C.text2, fontFamily: FONT, fontSize: 12 } };
+function tip(title, lines) {
+  return `<div style="font-weight:700;margin-bottom:4px">${esc(title)}</div>` + lines.filter(Boolean).map(l => {
+    const [label, value, color] = l;
+    return `<div style="display:flex;gap:14px;justify-content:space-between;align-items:center">
+      <span style="color:${C.text2}">${color ? `<i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:6px"></i>` : ''}${label}</span>
+      <b style="font-variant-numeric:tabular-nums">${value}</b></div>`;
+  }).join('');
+}
+const fmtDelta = (cur, prev) => prev ? `${cur >= prev ? '▲' : '▼'} ${Math.abs((cur - prev) / prev * 100).toFixed(1)}%` : '-';
+function emptyOption() {
+  return { graphic: { type: 'text', left: 'center', top: 'middle', style: { text: '선택한 조건에 해당하는 데이터가 없습니다', fill: C.text3, font: `13px ${FONT}` } } };
+}
+function setOpt(id, opt, clickDim) {
+  const ch = chart(id), zr = ch.getZr();
+  ch.setOption(opt, true);
+  ch.off('click');
+  // 이전에 등록한 zrender 핸들러만 해제 (zr.off('click')는 ECharts 내부 핸들러까지 지움)
+  if (ch._drill) { zr.off('click', ch._drill.click); zr.off('mousemove', ch._drill.move); ch._drill = null; zr.setCursorStyle('default'); }
+  if (!clickDim) return;
+  const catX = opt.xAxis?.type === 'category', catY = opt.yAxis?.type === 'category';
+  if ((opt.series || []).some(s => s?.type === 'bar') && (catX || catY)) {
+    // 막대 차트: 막대뿐 아니라 해당 항목의 세로/가로 띠 어디를 눌러도 필터 적용
+    const hit = e => {
+      const pt = [e.offsetX, e.offsetY];
+      if (!ch.containPixel({ gridIndex: 0 }, pt)) return null;
+      const [xv, yv] = ch.convertFromPixel({ gridIndex: 0 }, pt);
+      return (catX ? opt.xAxis : opt.yAxis).data[Math.round(catX ? xv : yv)] ?? null;
+    };
+    ch._drill = {
+      click: e => { const v = hit(e); if (v != null) setSingleFilter(clickDim, v); },
+      move: e => { if (hit(e) != null) zr.setCursorStyle('pointer'); },
+    };
+    zr.on('click', ch._drill.click); zr.on('mousemove', ch._drill.move);
+  } else {
+    ch.on('click', p => { if (p.name) setSingleFilter(clickDim, p.name); });
+  }
+}
+const yMoney = (extra = {}) => ({ type: 'value', ...axisCommon, axisLabel: { ...axisCommon.axisLabel, formatter: v => v >= 1000 ? nf0.format(v / 1000) + 'k' : v }, name: '천원', ...extra });
+
+/* ══════════════════════════════════════════════════════════════
+   차트별 렌더
+   ══════════════════════════════════════════════════════════════ */
+function renderMonthly(rows) {
+  const yms = ymRange(state.from, state.to);
+  const g = groupBy(rows, r => r.ym);
+  // 전년동월 비교용 (차원 필터만 적용, 기간 무관)
+  const gAll = groupBy(state.rows.filter(r => passDims(r)), r => r.ym);
+  const data = yms.map(ym => ({ ym, ...agg(g.get(ym) || []) }));
+  const prevYm = ym => `${+ym.slice(0, 4) - 1}${ym.slice(4)}`;
+  setOpt('chMonthly', rows.length ? {
+    textStyle: baseText,
+    legend: { ...legendBase, data: ['총정비비', '비계획 정비비'] },
+    grid: { left: 8, right: 16, top: 36, bottom: yms.length > 18 ? 56 : 16, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: C.text3, type: 'dashed' } },
+      formatter: ps => {
+        const d = data[ps[0].dataIndex]; const p = agg(gAll.get(prevYm(d.ym)) || []);
+        return tip(ymLabel(d.ym), [
+          ['총정비비', won(d.cost) + '천원', C.total], ['계획 정비비', won(d.planCost) + '천원', C.plan], ['비계획 정비비', won(d.unCost) + '천원', C.unplan],
+          ['작업건수', won(d.n) + '건'], ['비계획 비중(건수)', pct(d.unRate)], ['긴급가산 추가비용', won(d.surcharge) + '천원'],
+          ['전년동월 대비', p.n ? fmtDelta(d.cost, p.cost) : '-'],
+        ]);
+      } },
+    xAxis: { type: 'category', data: yms.map(ymLabel), boundaryGap: false, ...axisCommon, splitLine: { show: false } },
+    yAxis: yMoney(),
+    dataZoom: yms.length > 18 ? [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 8, borderColor: C.grid, fillerColor: 'rgba(0,104,183,.12)', handleSize: '90%', textStyle: { fontSize: 10, color: C.text3 } }] : [],
+    series: [
+      { name: '총정비비', type: 'line', data: data.map(d => Math.round(d.cost)), lineStyle: { width: 2, color: C.total }, itemStyle: { color: C.total }, symbol: 'circle', symbolSize: 6, showSymbol: yms.length <= 24,
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(13,54,107,.14)' }, { offset: 1, color: 'rgba(13,54,107,0)' }]) },
+        markPoint: { symbol: 'pin', symbolSize: 40, label: { fontSize: 10, formatter: p => nf0.format(p.value / 1000) + 'k' }, itemStyle: { color: C.total }, data: [{ type: 'max', name: '최대' }] } },
+      { name: '비계획 정비비', type: 'line', data: data.map(d => Math.round(d.unCost)), lineStyle: { width: 2, color: C.unplan }, itemStyle: { color: C.unplan }, symbol: 'circle', symbolSize: 6, showSymbol: yms.length <= 24 },
+    ],
+  } : emptyOption());
+}
+
+function renderYearly(rows) {
+  const g = groupBy(rows, r => r.y);
+  const years = [...g.keys()].sort();
+  const data = years.map(y => ({ y, ...agg(g.get(y)) }));
+  // 선택 기간이 연도 일부만 포함하면 그 사실을 툴팁에 표기
+  const monthsIn = y => ymRange(state.from, state.to).filter(v => v.startsWith(y)).length;
+  setOpt('chYearly', rows.length ? {
+    textStyle: baseText,
+    grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } },
+      formatter: ps => { const i = ps[0].dataIndex, d = data[i], p = data[i - 1];
+        return tip(`${d.y}년${monthsIn(String(d.y)) < 12 ? ` (선택 기간 ${monthsIn(String(d.y))}개월)` : ''}`, [
+          ['총정비비', won(d.cost) + '천원', yearColor(d.y)], ['작업건수', won(d.n) + '건'], ['건당 정비비', won(d.perCase) + '천원'],
+          ['비계획 비중', pct(d.unRate)], ['전년 대비', p ? fmtDelta(d.cost, p.cost) : '-']]); } },
+    xAxis: { type: 'category', data: years.map(y => y + '년'), ...axisCommon, splitLine: { show: false } },
+    yAxis: yMoney(),
+    series: [{ type: 'bar', barMaxWidth: 56, data: data.map((d, i) => ({ value: Math.round(d.cost), itemStyle: { color: yearColor(d.y), borderRadius: [4, 4, 0, 0] },
+      label: { show: true, position: 'top', fontFamily: FONT, fontSize: 11.5, fontWeight: 600,
+        color: i && data[i - 1].cost ? (d.cost >= data[i - 1].cost ? C.bad : '#0a8a3a') : C.text3,
+        formatter: () => i && data[i - 1].cost ? `${d.cost >= data[i - 1].cost ? '+' : ''}${((d.cost / data[i - 1].cost - 1) * 100).toFixed(1)}%` : '기준' } })) }],
+  } : emptyOption());
+}
+function yearColor(y) {
+  const ys = [...new Set(state.rows.map(r => r.y))].sort();
+  const i = ys.indexOf(+y); const n = ys.length;
+  const ramp = C.yearRamp; const idx = n <= 1 ? ramp.length - 1 : Math.round(1 + i * (ramp.length - 2) / (n - 1));
+  return ramp[Math.min(ramp.length - 1, idx)];
+}
+
+function renderQuarterly(rows) {
+  const g = groupBy(rows, r => r.q);
+  const qs = [...new Set(ymRange(state.from, state.to).map(ym => `${ym.slice(0, 4)} Q${Math.ceil(+ym.slice(5) / 3)}`))];
+  const gAll = groupBy(state.rows.filter(r => passDims(r)), r => r.q);
+  const data = qs.map(q => ({ q, ...agg(g.get(q) || []) }));
+  setOpt('chQuarterly', rows.length ? {
+    textStyle: baseText,
+    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } },
+      formatter: ps => { const i = ps[0].dataIndex, d = data[i];
+        const [y, qq] = d.q.split(' '); const py = agg(gAll.get(`${+y - 1} ${qq}`) || []);
+        const pq = i > 0 ? data[i - 1] : null;
+        return tip(d.q, [['총정비비', won(d.cost) + '천원', yearColor(y)], ['작업건수', won(d.n) + '건'], ['비계획 비중', pct(d.unRate)],
+          ['전분기 대비', pq ? fmtDelta(d.cost, pq.cost) : '-'], ['전년동기 대비', py.n ? fmtDelta(d.cost, py.cost) : '-']]); } },
+    xAxis: { type: 'category', data: qs.map(q => q.replace(' ', '\n')), ...axisCommon, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, fontSize: 10.5, interval: 0 } },
+    yAxis: yMoney(),
+    series: [{ type: 'bar', barMaxWidth: 28, data: data.map(d => ({ value: Math.round(d.cost), itemStyle: { color: yearColor(d.q.slice(0, 4)), borderRadius: [4, 4, 0, 0] } })) }],
+  } : emptyOption());
+}
+
+function renderSeason(rows) {
+  const g = groupBy(rows, r => r.y);
+  const years = [...g.keys()].sort();
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const series = years.map(y => {
+    const gm = groupBy(g.get(y), r => r.m);
+    return { name: `${y}년`, type: 'line', smooth: false, symbol: 'circle', symbolSize: 6, color: yearColor(y), lineStyle: { width: 2 },
+      data: months.map(m => gm.has(m) ? Math.round(agg(gm.get(m)).cost) : null), connectNulls: false };
+  });
+  const avg = months.map(m => { const vals = series.map(s => s.data[m - 1]).filter(v => v != null); return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null; });
+  setOpt('chSeason', rows.length ? {
+    textStyle: baseText,
+    legend: { ...legendBase },
+    grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: C.text3, type: 'dashed' } },
+      formatter: ps => tip(`${ps[0].dataIndex + 1}월`, [...ps.map(p => [p.seriesName, p.value == null ? '-' : won(p.value) + '천원', p.color]),
+        ['연도 평균', avg[ps[0].dataIndex] == null ? '-' : won(avg[ps[0].dataIndex]) + '천원']]) },
+    xAxis: { type: 'category', data: months.map(m => m + '월'), boundaryGap: false, ...axisCommon, splitLine: { show: false } },
+    yAxis: yMoney(),
+    series,
+  } : emptyOption());
+}
+
+function stackedPlanBars(id, items, horizontal, dim) {
+  const total = sum(items, i => i.cost);
+  const cat = items.map(i => i.k);
+  const tipFn = ps => { const d = items[ps[0].dataIndex];
+    return tip(d.k, [['총정비비', won(d.cost) + '천원'], ['계획 정비비', won(d.planCost) + '천원', C.plan], ['비계획 정비비', won(d.unCost) + '천원', C.unplan],
+      ['작업건수', won(d.n) + '건'], ['건당 정비비', won(d.perCase) + '천원'], ['비계획 비중(건수)', pct(d.unRate)], ['전체 대비 비중', pct(d.cost / total)]])
+      + `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 필터로 적용</div>`; };
+  const catAxis = { type: 'category', data: cat, ...axisCommon, splitLine: { show: false }, inverse: horizontal,
+    axisLabel: { ...axisCommon.axisLabel, interval: 0, ...(horizontal ? { width: 96, overflow: 'truncate' } : { rotate: isNarrow() ? 35 : 0, fontSize: 11 }) } };
+  const valAxis = yMoney(horizontal ? { name: '' } : {});
+  const r = horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0];
+  setOpt(id, items.length ? {
+    textStyle: baseText,
+    legend: { ...legendBase, data: ['계획', '비계획'] },
+    grid: { left: 8, right: horizontal ? 64 : 16, top: 36, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } }, formatter: tipFn },
+    xAxis: horizontal ? valAxis : catAxis,
+    yAxis: horizontal ? catAxis : valAxis,
+    series: [
+      { name: '계획', type: 'bar', stack: 't', barMaxWidth: horizontal ? 18 : 40, itemStyle: { color: C.plan, borderColor: '#fff', borderWidth: 1 }, data: items.map(i => Math.round(i.planCost)) },
+      { name: '비계획', type: 'bar', stack: 't', barMaxWidth: horizontal ? 18 : 40, itemStyle: { color: C.unplan, borderColor: '#fff', borderWidth: 1, borderRadius: r }, data: items.map(i => Math.round(i.unCost)),
+        label: { show: true, position: horizontal ? 'right' : 'top', fontFamily: FONT, fontSize: 11, color: C.text2, formatter: p => nf0.format(items[p.dataIndex].cost / 1000) + 'k' } },
+    ],
+  } : emptyOption(), dim);
+}
+function renderLine(rows) {
+  const items = [...groupBy(rows, r => r.line)].map(([k, v]) => ({ k, ...agg(v) })).sort((a, b) => b.cost - a.cost);
+  stackedPlanBars('chLine', items, false, 'line');
+}
+function renderTop10(rows) {
+  const items = [...groupBy(rows, r => r.equip)].map(([k, v]) => ({ k, ...agg(v) })).sort((a, b) => b.cost - a.cost).slice(0, 10);
+  stackedPlanBars('chTop10', items, true, 'equip');
+}
+
+function renderPareto(rows) {
+  const items = [...groupBy(rows, r => r.equip)].map(([k, v]) => ({ k, ...agg(v) })).sort((a, b) => b.cost - a.cost);
+  const total = sum(items, i => i.cost); let acc = 0;
+  items.forEach(i => { i.share = i.cost / total; acc += i.share; i.cum = acc; });
+  const topN = Math.max(1, Math.ceil(items.length * 0.2));
+  const topShare = items.slice(0, topN).reduce((s, i) => s + i.share, 0);
+  const n80 = items.findIndex(i => i.cum >= 0.8) + 1;
+  $('paretoNote').innerHTML = items.length ? `상위 20% 설비 <b>${topN}개</b>(진한 막대)가 정비비의 <b>${pct(topShare)}</b>를 차지합니다. 누적 80%까지는 설비 <b>${n80}개</b>가 필요합니다 (전체 ${items.length}개).` : '';
+  setOpt('chPareto', items.length ? {
+    textStyle: baseText,
+    legend: { ...legendBase, data: ['설비별 비중', '누적 비중'] },
+    grid: { left: 8, right: 40, top: 36, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } },
+      formatter: ps => { const i = ps[0].dataIndex, d = items[i];
+        return tip(`${i + 1}위 ${d.k}`, [['정비비', won(d.cost) + '천원'], ['비중', pct(d.share)], ['누적 비중', pct(d.cum)], ['작업건수', won(d.n) + '건'], ['비계획 비중', pct(d.unRate)],
+          i < topN ? ['구분', '상위 20% 설비'] : null]); } },
+    xAxis: { type: 'category', data: items.map(i => i.k), ...axisCommon, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, interval: 0, rotate: 45, fontSize: 10.5, width: 80, overflow: 'truncate' } },
+    yAxis: { type: 'value', max: 1, ...axisCommon, axisLabel: { ...axisCommon.axisLabel, formatter: v => (v * 100).toFixed(0) + '%' } },
+    series: [
+      { name: '설비별 비중', type: 'bar', barMaxWidth: 26, data: items.map((d, i) => ({ value: d.share, itemStyle: { color: i < topN ? C.total : '#9ec5f4', borderRadius: [4, 4, 0, 0] } })), itemStyle: { color: C.total } },
+      { name: '누적 비중', type: 'line', data: items.map(d => d.cum), symbol: 'circle', symbolSize: 6, lineStyle: { width: 2, color: C.unplan }, itemStyle: { color: C.unplan },
+        markLine: { silent: true, symbol: 'none', lineStyle: { color: C.text3, type: 'dashed' }, label: { formatter: '80%', color: C.text2, fontSize: 11 }, data: [{ yAxis: 0.8 }] } },
+    ],
+  } : emptyOption(), 'equip');
+}
+
+function renderSiteCmp(rows) {
+  const sites = [...new Set(rows.map(r => r.site))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const allSites = [...new Set(state.rows.map(r => r.site))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const siteColor = s => C.site[allSites.indexOf(s) % C.site.length];
+  const byEq = groupBy(rows, r => r.equip);
+  let items = [];
+  for (const [eq, rs] of byEq) {
+    const bySite = groupBy(rs, r => r.site);
+    if (bySite.size < 2) continue;
+    const vals = Object.fromEntries(sites.map(s => [s, bySite.has(s) ? agg(bySite.get(s)) : null]));
+    const per = Object.values(vals).filter(Boolean).map(v => v.perCase);
+    const gap = (Math.max(...per) - Math.min(...per)) / Math.min(...per);
+    items.push({ eq, vals, gap });
+  }
+  items.sort((a, b) => b.gap - a.gap); items = items.slice(0, 12);
+  setOpt('chSiteCmp', items.length && sites.length >= 2 ? {
+    textStyle: baseText,
+    legend: { ...legendBase },
+    grid: { left: 8, right: 56, top: 36, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } },
+      formatter: ps => { const d = items[ps[0].dataIndex];
+        return tip(d.eq, [...sites.map(s => d.vals[s] ? [`${s} 건당`, `${won(d.vals[s].perCase)}천원 (${d.vals[s].n}건)`, siteColor(s)] : [`${s}`, '작업 없음', siteColor(s)]),
+          ['최대/최소 차이', '+' + pct(d.gap)]]) + `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 해당 설비로 필터</div>`; } },
+    xAxis: { type: 'value', ...axisCommon, name: '건당 정비비(천원)', nameLocation: 'middle', nameGap: 24, axisLabel: { ...axisCommon.axisLabel, formatter: v => nf0.format(v) } },
+    yAxis: { type: 'category', inverse: true, data: items.map(i => i.eq), ...axisCommon, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, width: 100, overflow: 'truncate' } },
+    series: sites.map(s => ({ name: s, type: 'bar', barMaxWidth: 14, barGap: '20%', itemStyle: { color: siteColor(s), borderRadius: [0, 4, 4, 0] },
+      data: items.map(i => i.vals[s] ? Math.round(i.vals[s].perCase) : null),
+      label: { show: !isNarrow(), position: 'right', fontSize: 10.5, color: C.text2, fontFamily: FONT, formatter: p => p.value ? nf0.format(p.value) : '' } })),
+  } : { graphic: { type: 'text', left: 'center', top: 'middle', style: { text: '두 개 이상 사업장에 공통으로 있는 설비가 없습니다 (사업장 필터를 확인하세요)', fill: C.text3, font: `13px ${FONT}` } } },
+  'equip');
+}
+
+function donut(id, items, colorOf, dim, extraLines) {
+  const total = sum(items, i => i.cost);
+  setOpt(id, items.length ? {
+    textStyle: baseText,
+    tooltip: { ...tooltipBase, trigger: 'item', formatter: p => { const d = items[p.dataIndex];
+      return tip(d.k, [['정비비', won(d.cost) + '천원', p.color], ['비중', pct(d.cost / total)], d.n != null ? ['작업건수', won(d.n) + '건'] : null, ...(extraLines ? extraLines(d) : [])])
+        + (dim ? `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 필터로 적용</div>` : ''); } },
+    legend: { ...legendBase, top: 'auto', bottom: 0, left: 'center' },
+    series: [{ type: 'pie', radius: ['48%', '74%'], center: ['50%', '45%'], avoidLabelOverlap: true, padAngle: 1,
+      itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 4 },
+      label: { show: true, formatter: p => `${(p.percent).toFixed(0)}%`, fontFamily: FONT, fontSize: 11.5, color: C.text1 }, labelLine: { length: 6, length2: 6 },
+      data: items.map(i => ({ name: i.k, value: Math.round(i.cost), itemStyle: { color: colorOf(i.k) } })) },
+      { type: 'pie', radius: [0, 0], center: ['50%', '45%'], silent: true, label: { show: true, position: 'center', formatter: `{a|합계}\n{b|${nf0.format(total / 1000)}k}`,
+        rich: { a: { fontSize: 11, color: C.text3, fontFamily: FONT }, b: { fontSize: 15, fontWeight: 700, color: C.text1, fontFamily: FONT, padding: [3, 0, 0, 0] } } }, data: [{ value: 1, itemStyle: { color: 'transparent' } }] }],
+  } : emptyOption(), dim);
+}
+function renderWtype(rows) {
+  const order = [...PLANNED_TYPES, ...UNPLANNED_TYPES];
+  const items = [...groupBy(rows, r => r.wtype)].map(([k, v]) => ({ k, ...agg(v) }))
+    .sort((a, b) => ((order.indexOf(a.k) + 99) % 99) - ((order.indexOf(b.k) + 99) % 99));
+  donut('chWtype', items, k => C.wtype[k] || (isUnplanned(k) ? C.unplan : C.plan), 'wtype', d => [['구분', isUnplanned(d.k) ? '비계획' : '계획'], ['긴급가산 추가비용', won(d.surcharge) + '천원']]);
+}
+function renderMtype(rows) {
+  const all = [...new Set(state.rows.map(r => r.mtype))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const known = ['예방점검', '고장수리', '금형교환/정비', '정밀도 보정', '개선/개조'];
+  const ord = [...known.filter(k => all.includes(k)), ...all.filter(k => !known.includes(k))];
+  const items = [...groupBy(rows, r => r.mtype)].map(([k, v]) => ({ k, ...agg(v) })).sort((a, b) => ord.indexOf(a.k) - ord.indexOf(b.k));
+  donut('chMtype', items, k => C.mtype[Math.min(ord.indexOf(k), C.mtype.length - 1)], 'mtype', d => [['건당 정비비', won(d.perCase) + '천원'], ['비계획 비중', pct(d.unRate)]]);
+}
+function renderCostMix(rows) {
+  const a = agg(rows);
+  const items = rows.length ? [{ k: '인건비', cost: a.labor }, { k: '부품비', cost: a.parts }] : [];
+  donut('chCostMix', items, k => k === '인건비' ? C.labor : C.parts, null, d => d.k === '인건비'
+    ? [['정산공수 합계', nf1.format(a.manhour) + '시간'], ['시간당 단가', HOURLY_RATE + '천원'], ['그중 긴급가산분', won(a.surcharge) + '천원']]
+    : [['건당 부품비', won(a.n ? a.parts / a.n : 0) + '천원']]);
+}
+
+function renderPartsRatio(rows) {
+  const items = [...groupBy(rows, r => r.equip)].map(([k, v]) => ({ k, ...agg(v) })).filter(i => i.cost > 0)
+    .map(i => ({ ...i, ratio: i.parts / i.cost })).sort((a, b) => b.ratio - a.ratio).slice(0, 15);
+  const avg = rows.length ? agg(rows) : null;
+  setOpt('chPartsRatio', items.length ? {
+    textStyle: baseText,
+    grid: { left: 8, right: 48, top: 30, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } },
+      formatter: ps => { const d = items[ps[0].dataIndex];
+        return tip(d.k, [['부품비 비율', pct(d.ratio), C.parts], ['부품비', won(d.parts) + '천원'], ['총정비비', won(d.cost) + '천원'], ['건당 부품비', won(d.parts / d.n) + '천원'], ['작업건수', won(d.n) + '건']]); } },
+    xAxis: { type: 'value', ...axisCommon, axisLabel: { ...axisCommon.axisLabel, formatter: v => (v * 100).toFixed(0) + '%' } },
+    yAxis: { type: 'category', inverse: true, data: items.map(i => i.k), ...axisCommon, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, width: 100, overflow: 'truncate' } },
+    series: [{ type: 'bar', barMaxWidth: 16, itemStyle: { color: C.parts, borderRadius: [0, 4, 4, 0] }, data: items.map(i => i.ratio),
+      label: { show: true, position: 'right', fontSize: 10.5, fontFamily: FONT, color: C.text2, formatter: p => pct(p.value) },
+      markLine: avg ? { silent: true, symbol: 'none', lineStyle: { color: C.text3, type: 'dashed' }, label: { formatter: `평균 ${pct(avg.parts / avg.cost)}`, color: C.text2, fontSize: 11, position: 'start' }, data: [{ xAxis: avg.parts / avg.cost }] } : undefined }],
+  } : emptyOption(), 'equip');
+}
+
+function heatmap(id, xCats, yCats, cells, ramp, fmtCell, tipFn, showLabel, clickHandler) {
+  const vals = cells.map(c => c[2]).filter(v => v != null);
+  const max = vals.length ? Math.max(...vals) : 1, min = vals.length ? Math.min(...vals) : 0;
+  setOpt(id, cells.length ? {
+    textStyle: baseText,
+    grid: { left: 8, right: 16, top: 8, bottom: 56, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'item', formatter: tipFn },
+    xAxis: { type: 'category', data: xCats, ...axisCommon, splitArea: { show: false }, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, interval: xCats.length > 24 ? 'auto' : 0, fontSize: 11 } },
+    yAxis: { type: 'category', data: yCats, ...axisCommon, splitLine: { show: false } },
+    visualMap: { min, max, calculable: true, orient: 'horizontal', left: 'center', bottom: 0, itemHeight: 160, itemWidth: 12,
+      inRange: { color: ramp }, textStyle: { color: C.text2, fontFamily: FONT, fontSize: 11 }, formatter: v => fmtCell(v) },
+    series: [{ type: 'heatmap', data: cells, itemStyle: { borderColor: '#fff', borderWidth: 2, borderRadius: 3 },
+      label: { show: showLabel && !isNarrow(), fontFamily: FONT, fontSize: 10.5, formatter: p => p.value[2] == null ? '' : fmtCell(p.value[2]),
+        color: '#111827' },
+      emphasis: { itemStyle: { borderColor: C.text1, borderWidth: 1 } } }],
+  } : emptyOption());
+  const ch = chart(id); ch.off('click'); if (clickHandler) ch.on('click', clickHandler);
+}
+function renderHeatType(rows) {
+  const lines = [...new Set(rows.map(r => r.line))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const types = [...new Set(rows.map(r => r.mtype))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const g = groupBy(rows, r => r.line + '|' + r.mtype);
+  const cells = [], meta = {};
+  lines.forEach((l, yi) => types.forEach((t, xi) => {
+    const a = agg(g.get(l + '|' + t) || []); meta[xi + ',' + yi] = a;
+    cells.push([xi, yi, a.n ? Math.round(a.cost) : null]);
+  }));
+  const lineTot = Object.fromEntries(lines.map(l => [l, agg(rows.filter(r => r.line === l)).cost]));
+  heatmap('chHeatType', types, lines, cells, C.seqBlue, v => nf0.format(v),
+    p => { const a = meta[p.value[0] + ',' + p.value[1]];
+      return tip(`${lines[p.value[1]]} · ${types[p.value[0]]}`, [['정비비', won(a.cost) + '천원'], ['작업건수', won(a.n) + '건'], ['건당 정비비', won(a.perCase) + '천원'], ['라인 내 비중', pct(a.cost / lineTot[lines[p.value[1]]])]])
+        + `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 라인·유형 필터 적용</div>`; },
+    true,
+    p => { state.filters.line = new Set([lines[p.value[1]]]); state.filters.mtype = new Set([types[p.value[0]]]); toast(`필터 적용: ${lines[p.value[1]]} · ${types[p.value[0]]}`); onFilterChange('line'); });
+}
+function renderHeatUnplan(rows) {
+  const yms = ymRange(state.from, state.to);
+  const lines = [...new Set(rows.map(r => r.line))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const g = groupBy(rows, r => r.line + '|' + r.ym);
+  const cells = [], meta = {};
+  lines.forEach((l, yi) => yms.forEach((ym, xi) => {
+    const a = agg(g.get(l + '|' + ym) || []); meta[xi + ',' + yi] = a;
+    cells.push([xi, yi, a.n ? +(a.unRate * 100).toFixed(1) : null]);
+  }));
+  heatmap('chHeatUnplan', yms.map(ymLabel), lines, cells, C.seqOrange, v => Math.round(v) + '%',
+    p => { const a = meta[p.value[0] + ',' + p.value[1]];
+      return tip(`${lines[p.value[1]]} · ${ymLabel(yms[p.value[0]])}`, a.n ? [['비계획 비중', pct(a.unRate), C.unplan], ['비계획/전체 건수', `${a.un} / ${a.n}건`], ['비계획 정비비', won(a.unCost) + '천원'], ['긴급가산 추가비용', won(a.surcharge) + '천원']] : [['작업', '없음']]); },
+    yms.length <= 12,
+    p => setSingleFilter('line', lines[p.value[1]]));
+}
+
+function renderUnplanScatter(rows) {
+  const items = [...groupBy(rows, r => r.equip)].map(([k, v]) => ({ k, cat: v[0].cat, ...agg(v) }));
+  if (!items.length) { setOpt('chUnplanScatter', emptyOption()); return; }
+  const mx = quantile(items.map(i => i.unRate).sort((a, b) => a - b), .5), my = quantile(items.map(i => i.cost).sort((a, b) => a - b), .5);
+  const maxN = Math.max(...items.map(i => i.n));
+  const hot = i => i.unRate > mx && i.cost > my;
+  setOpt('chUnplanScatter', {
+    textStyle: baseText,
+    grid: { left: 8, right: 52, top: 24, bottom: 28, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'item', formatter: p => { const d = items[p.dataIndex];
+      return tip(d.k, [['설비분류', esc(d.cat)], ['비계획 비중(건수)', pct(d.unRate), C.unplan], ['총정비비', won(d.cost) + '천원'], ['비계획 정비비', won(d.unCost) + '천원'], ['작업건수', won(d.n) + '건'], ['건당 정비비', won(d.perCase) + '천원'],
+        hot(d) ? ['판정', '집중관리 대상'] : null]) + `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 해당 설비로 필터</div>`; } },
+    xAxis: { type: 'value', ...axisCommon, name: '비계획 비중 (건수)', nameLocation: 'middle', nameGap: 26, axisLabel: { ...axisCommon.axisLabel, formatter: v => (v * 100).toFixed(0) + '%' }, scale: true },
+    yAxis: yMoney({ name: '총정비비(천원)', scale: true }),
+    series: [{ type: 'scatter', data: items.map(i => ({ value: [i.unRate, Math.round(i.cost)], name: i.k,
+        symbolSize: 8 + 22 * Math.sqrt(i.n / maxN),
+        itemStyle: { color: hot(i) ? C.unplan : C.plan, opacity: .78, borderColor: '#fff', borderWidth: 1.5 },
+        label: { show: hot(i) && !isNarrow(), formatter: i.k, position: 'right', fontSize: 10.5, color: C.text1, fontFamily: FONT } })),
+      labelLayout: { hideOverlap: true },
+      markLine: { silent: true, symbol: 'none', lineStyle: { color: C.text3, type: 'dashed' }, label: { color: C.text3, fontSize: 10.5, fontFamily: FONT },
+        data: [{ xAxis: mx, label: { formatter: '중앙값' } }, { yAxis: my, label: { formatter: '중앙값' } }] } }],
+  }, 'equip');
+}
+
+function renderSurcharge(rows) {
+  const items = [...groupBy(rows, r => r.cat)].map(([k, v]) => {
+    const un = v.filter(r => r.unplanned);
+    return { k, ...agg(v), avgRate: un.length ? sum(un, r => r.rate) / un.length : 0 };
+  }).sort((a, b) => b.surcharge - a.surcharge);
+  const total = sum(items, i => i.surcharge);
+  setOpt('chSurcharge', items.length ? {
+    textStyle: baseText,
+    grid: { left: 8, right: 64, top: 16, bottom: 8, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,104,183,.06)' } },
+      formatter: ps => { const d = items[ps[0].dataIndex];
+        return tip(d.k, [['긴급가산 추가비용', won(d.surcharge) + '천원', C.unplan], ['전체 추가비용 중', pct(total ? d.surcharge / total : NaN)], ['총정비비 대비', pct(d.surcharge / d.cost)],
+          ['비계획 건수', `${d.un} / ${d.n}건`], ['비계획 평균 가산율', pct(d.avgRate)]]) + `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 설비분류 필터 적용</div>`; } },
+    xAxis: yMoney({ name: '' }),
+    yAxis: { type: 'category', inverse: true, data: items.map(i => i.k), ...axisCommon, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, width: 90, overflow: 'truncate' } },
+    series: [{ type: 'bar', barMaxWidth: 18, itemStyle: { color: C.unplan, borderRadius: [0, 4, 4, 0] }, data: items.map(i => Math.round(i.surcharge)),
+      label: { show: true, position: 'right', fontSize: 10.5, fontFamily: FONT, color: C.text2, formatter: p => nf0.format(p.value) } }],
+  } : emptyOption(), 'cat');
+}
+
+function renderPrevent(rows) {
+  const g = groupBy(rows, r => r.equip + '|' + r.y);
+  const pts = [];
+  for (const [k, v] of g) {
+    if (v.length < 5) continue;
+    const [eq, y] = k.split('|'); const a = agg(v);
+    const prevN = v.filter(r => r.mtype === '예방점검').length;
+    const fail = v.filter(r => r.mtype === '고장수리' || r.wtype === '돌발복구');
+    pts.push({ eq, y, n: v.length, prevRate: prevN / v.length, failShare: a.cost ? sum(fail, r => r.cost) / a.cost : 0, failCost: sum(fail, r => r.cost), cost: a.cost, prevN });
+  }
+  if (pts.length < 3) { $('preventNote').textContent = '분석할 점이 부족합니다 (설비 × 연도 5건 이상 조합이 3개 미만).'; setOpt('chPrevent', emptyOption()); return; }
+  const xs = pts.map(p => p.prevRate), ys = pts.map(p => p.failShare);
+  const r = pearson(xs, ys), lr = linreg(xs, ys);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  $('preventNote').innerHTML = `상관계수 r = <b>${isFinite(r) ? r.toFixed(2) : '-'}</b> (${rDesc(r)}). ` +
+    (r < -0.2 ? '예방점검 비중이 높을수록 고장수리·돌발복구 비용 비중이 낮아지는 경향 — 예방보전 효과가 보입니다.'
+      : r > 0.2 ? '예방점검 비중이 높은 설비에서 오히려 고장 비용 비중도 높음 — 점검 내용·주기의 실효성 점검이 필요합니다.'
+      : '예방점검 비중과 고장 비용 비중 사이에 뚜렷한 관계가 보이지 않습니다 — 설비별로 따로 확인이 필요합니다.');
+  setOpt('chPrevent', {
+    textStyle: baseText,
+    grid: { left: 8, right: 24, top: 16, bottom: 28, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'item', formatter: p => { if (p.seriesType !== 'scatter') return ''; const d = pts[p.dataIndex];
+      return tip(`${d.eq} · ${d.y}년`, [['예방점검 비중', `${pct(d.prevRate)} (${d.prevN}/${d.n}건)`, C.plan], ['고장·돌발 비용 비중', pct(d.failShare), C.unplan], ['고장·돌발 비용', won(d.failCost) + '천원'], ['총정비비', won(d.cost) + '천원']]); } },
+    xAxis: { type: 'value', ...axisCommon, name: '예방점검 비중 (건수)', nameLocation: 'middle', nameGap: 26, scale: true, axisLabel: { ...axisCommon.axisLabel, formatter: v => (v * 100).toFixed(0) + '%' } },
+    yAxis: { type: 'value', ...axisCommon, name: '고장수리·돌발복구 비용 비중', scale: true, axisLabel: { ...axisCommon.axisLabel, formatter: v => (v * 100).toFixed(0) + '%' } },
+    series: [
+      { type: 'scatter', symbolSize: 9, data: pts.map(p => [p.prevRate, p.failShare]), itemStyle: { color: C.total, opacity: .6, borderColor: '#fff', borderWidth: 1 } },
+      { type: 'line', silent: true, symbol: 'none', data: [[x0, lr.a + lr.b * x0], [x1, lr.a + lr.b * x1]], lineStyle: { color: C.unplan, width: 2, type: 'dashed' }, tooltip: { show: false } },
+    ],
+  });
+}
+
+function renderBox(rows) {
+  const g = groupBy(rows, r => r.equip);
+  const items = [...g].map(([k, v]) => {
+    const s = v.map(r => r.cost).sort((a, b) => a - b);
+    const q1 = quantile(s, .25), q2 = quantile(s, .5), q3 = quantile(s, .75), iqr = q3 - q1;
+    const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
+    const inside = s.filter(x => x >= lo && x <= hi);
+    return { k, n: s.length, q1, q2, q3, min: inside[0] ?? s[0], max: inside[inside.length - 1] ?? s[s.length - 1], mean: s.reduce((a, b) => a + b, 0) / s.length,
+      outliers: v.filter(r => r.cost < lo || r.cost > hi) };
+  }).sort((a, b) => b.q2 - a.q2);
+  $('chBox').style.height = Math.max(320, items.length * 22 + 80) + 'px';
+  chart('chBox').resize();
+  const outPts = [];
+  items.forEach((it, i) => it.outliers.forEach(r => outPts.push({ value: [Math.round(r.cost), i], r })));
+  setOpt('chBox', items.length ? {
+    textStyle: baseText,
+    legend: { ...legendBase, data: ['건당 정비비 분포', '이상치'] },
+    grid: { left: 8, right: 24, top: 36, bottom: 28, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'item', formatter: p => {
+      if (p.seriesType === 'boxplot') { const d = items[p.dataIndex];
+        return tip(d.k, [['작업건수', won(d.n) + '건'], ['최소(울타리 내)', won(d.min) + '천원'], ['1사분위(Q1)', won(d.q1) + '천원'], ['중앙값', won(d.q2) + '천원', C.plan], ['평균', won(d.mean) + '천원'],
+          ['3사분위(Q3)', won(d.q3) + '천원'], ['최대(울타리 내)', won(d.max) + '천원'], ['이상치', won(d.outliers.length) + '건', C.bad]]) + `<div style="margin-top:6px;color:${C.text3};font-size:11.5px">클릭하면 해당 설비로 필터</div>`; }
+      const r = outPts[p.dataIndex].r;
+      return tip(`이상치 · ${r.id}`, [['설비', esc(r.equip)], ['작업일자', r.date], ['사업장/라인', `${esc(r.site)} / ${esc(r.line)}`], ['정비유형', esc(r.mtype)], ['작업구분', esc(r.wtype), r.unplanned ? C.unplan : C.plan],
+        ['총정비비', won(r.cost) + '천원', C.bad], ['투입인원 × 표준공수', `${r.people}명 × ${r.std}h`], ['부품비', won(r.parts) + '천원']]); } },
+    xAxis: { type: 'value', ...axisCommon, name: '건당 정비비(천원)', nameLocation: 'middle', nameGap: 24, axisLabel: { ...axisCommon.axisLabel, formatter: v => nf0.format(v) } },
+    yAxis: { type: 'category', inverse: true, data: items.map(i => i.k), ...axisCommon, splitLine: { show: false }, axisLabel: { ...axisCommon.axisLabel, interval: 0, width: 100, overflow: 'truncate' } },
+    series: [
+      { name: '건당 정비비 분포', type: 'boxplot', layout: 'horizontal', boxWidth: [6, 14], itemStyle: { color: '#cde2fb', borderColor: C.plan, borderWidth: 1.5 },
+        data: items.map(i => [i.min, i.q1, i.q2, i.q3, i.max].map(Math.round)) },
+      { name: '이상치', type: 'scatter', symbolSize: 7, itemStyle: { color: C.bad, opacity: .75 }, data: outPts.map(o => o.value) },
+    ],
+  } : emptyOption());
+  const ch = chart('chBox'); ch.off('click');
+  ch.on('click', p => { if (p.seriesType === 'boxplot') setSingleFilter('equip', items[p.dataIndex].k); });
+}
+
+function renderManhour(rows) {
+  if (!rows.length) { $('scatterNote').textContent = ''; setOpt('chManhour', emptyOption()); return; }
+  const r = pearson(rows.map(x => x.stdMh), rows.map(x => x.cost));
+  const plan = rows.filter(x => !x.unplanned), un = rows.filter(x => x.unplanned);
+  const lrP = plan.length > 2 ? linreg(plan.map(x => x.stdMh), plan.map(x => x.cost)) : null;
+  const lrU = un.length > 2 ? linreg(un.map(x => x.stdMh), un.map(x => x.cost)) : null;
+  $('scatterNote').innerHTML = `상관계수 r = <b>${isFinite(r) ? r.toFixed(2) : '-'}</b> (${rDesc(r)}). ` +
+    (lrP && lrU ? `표준인시 1시간당 비용 증가: 계획 <b>${won(lrP.b)}천원</b>, 비계획 <b>${won(lrU.b)}천원</b> — 비계획 작업은 같은 규모라도 긴급가산만큼 더 비쌉니다.` : '');
+  const toPts = arr => arr.map(x => [x.stdMh, Math.round(x.cost)]);
+  const maxX = Math.max(...rows.map(x => x.stdMh));
+  setOpt('chManhour', {
+    textStyle: baseText,
+    legend: { ...legendBase, data: ['계획', '비계획'] },
+    grid: { left: 8, right: 24, top: 36, bottom: 28, containLabel: true },
+    tooltip: { ...tooltipBase, trigger: 'item', formatter: p => { if (p.seriesType !== 'scatter') return '';
+      const x = (p.seriesName === '계획' ? plan : un)[p.dataIndex];
+      return tip(x.id, [['작업일자', x.date], ['설비', esc(x.equip)], ['라인', esc(x.line)], ['작업구분', esc(x.wtype), x.unplanned ? C.unplan : C.plan],
+        ['투입인원 × 표준공수', `${x.people}명 × ${x.std}h = ${nf1.format(x.stdMh)}h`], ['긴급가산율', pct(x.rate)], ['부품비', won(x.parts) + '천원'], ['총정비비', won(x.cost) + '천원']]); } },
+    xAxis: { type: 'value', ...axisCommon, name: '표준인시 (표준공수 × 투입인원, 시간)', nameLocation: 'middle', nameGap: 26 },
+    yAxis: yMoney({ name: '총정비비(천원)' }),
+    series: [
+      { name: '계획', type: 'scatter', symbolSize: 6, data: toPts(plan), itemStyle: { color: C.plan, opacity: .45 } },
+      { name: '비계획', type: 'scatter', symbolSize: 6, data: toPts(un), itemStyle: { color: C.unplan, opacity: .6 } },
+      lrP ? { name: '계획', type: 'line', silent: true, symbol: 'none', data: [[0, lrP.a], [maxX, lrP.a + lrP.b * maxX]], lineStyle: { color: C.plan, width: 2, type: 'dashed' }, tooltip: { show: false } } : null,
+      lrU ? { name: '비계획', type: 'line', silent: true, symbol: 'none', data: [[0, lrU.a], [maxX, lrU.a + lrU.b * maxX]], lineStyle: { color: C.unplan, width: 2, type: 'dashed' }, tooltip: { show: false } } : null,
+    ].filter(Boolean),
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   상세 표 + CSV
+   ══════════════════════════════════════════════════════════════ */
+const COLS = [
+  { k: 'id', t: '정비작업ID' }, { k: 'date', t: '작업일자' }, { k: 'site', t: '사업장' }, { k: 'line', t: '생산라인' },
+  { k: 'cat', t: '설비분류' }, { k: 'equip', t: '설비명' }, { k: 'mtype', t: '정비유형' }, { k: 'wtype', t: '작업구분' },
+  { k: 'people', t: '투입인원', n: 1, f: v => v }, { k: 'std', t: '표준공수(시간)', n: 1, f: v => v },
+  { k: 'rate', t: '긴급가산율', n: 1, f: v => (v * 100).toFixed(1) + '%' }, { k: 'mh', t: '정산공수(시간)', n: 1, f: v => nf1.format(v) },
+  { k: 'parts', t: '부품비(천원)', n: 1, f: won }, { k: 'cost', t: '총정비비(천원)', n: 1, f: won }, { k: 'surcharge', t: '긴급가산 추가비용(천원)', n: 1, f: won },
+];
+let currentRows = [];
+function tableRows() {
+  const q = state.table.search.trim().toLowerCase();
+  let rs = q ? currentRows.filter(r => COLS.some(c => String(r[c.k]).toLowerCase().includes(q))) : currentRows.slice();
+  const { sortKey, sortDir } = state.table;
+  rs.sort((a, b) => (a[sortKey] > b[sortKey] ? 1 : a[sortKey] < b[sortKey] ? -1 : 0) * sortDir);
+  return rs;
+}
+function renderTable() {
+  const rs = tableRows(), t = state.table;
+  const pages = Math.max(1, Math.ceil(rs.length / t.pageSize));
+  t.page = Math.min(t.page, pages);
+  const slice = rs.slice((t.page - 1) * t.pageSize, t.page * t.pageSize);
+  $('detailTable').innerHTML = `<thead><tr>${COLS.map(c => `<th class="${c.n ? 'r' : ''}" data-k="${c.k}">${c.t} <span class="arrow">${t.sortKey === c.k ? (t.sortDir > 0 ? '▲' : '▼') : ''}</span></th>`).join('')}</tr></thead>
+    <tbody>${slice.length ? slice.map(r => `<tr>${COLS.map(c => c.k === 'wtype'
+      ? `<td><span class="tag ${r.unplanned ? 'unplan' : 'plan'}">${esc(r.wtype)}</span></td>`
+      : `<td class="${c.n ? 'r num' : ''}">${c.f ? c.f(r[c.k]) : esc(r[c.k])}</td>`).join('')}</tr>`).join('')
+      : `<tr><td colspan="${COLS.length}" class="muted" style="text-align:center;padding:24px">해당 데이터가 없습니다</td></tr>`}</tbody>`;
+  $('detailTable').querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+    const k = th.dataset.k; if (t.sortKey === k) t.sortDir *= -1; else { t.sortKey = k; t.sortDir = COLS.find(c => c.k === k).n ? -1 : 1; }
+    renderTable();
+  }));
+  $('pager').innerHTML = `<span class="muted">${won(rs.length)}건 중 ${rs.length ? won((t.page - 1) * t.pageSize + 1) : 0}–${won(Math.min(t.page * t.pageSize, rs.length))}</span>
+    <button data-p="1" ${t.page === 1 ? 'disabled' : ''}>«</button><button data-p="${t.page - 1}" ${t.page === 1 ? 'disabled' : ''}>‹</button>
+    <span class="num">${t.page} / ${pages}</span>
+    <button data-p="${t.page + 1}" ${t.page === pages ? 'disabled' : ''}>›</button><button data-p="${pages}" ${t.page === pages ? 'disabled' : ''}>»</button>`;
+  $('pager').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { t.page = +b.dataset.p; renderTable(); }));
+}
+$('tableSearch').addEventListener('input', e => { state.table.search = e.target.value; state.table.page = 1; renderTable(); });
+$('btnCsv').addEventListener('click', () => {
+  const rs = tableRows();
+  const cell = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const lines = [COLS.map(c => c.t).join(','), ...rs.map(r => COLS.map(c => {
+    const v = r[c.k]; return cell(c.k === 'wtype' || !c.n ? v : c.k === 'rate' ? v : Math.round(v * 1000) / 1000);
+  }).join(','))];
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  const d = new Date(); a.download = `정비비_상세_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`${won(rs.length)}건을 CSV로 내려받았습니다.`);
+});
+
+/* ══════════════════════════════════════════════════════════════
+   전체 렌더
+   ══════════════════════════════════════════════════════════════ */
+function renderAll() {
+  const rows = filtered();
+  currentRows = rows;
+  renderKPIs(rows);
+  renderInsights(rows);
+  const jobs = [renderMonthly, renderYearly, renderQuarterly, renderSeason, renderLine, renderTop10, renderPareto, renderSiteCmp,
+    renderWtype, renderMtype, renderCostMix, renderPartsRatio, renderHeatType, renderUnplanScatter, renderSurcharge, renderHeatUnplan,
+    renderPrevent, renderBox, renderManhour];
+  for (const fn of jobs) { try { fn(rows); } catch (e) { console.error(fn.name, e); } }
+  renderTable();
+}
+let resizeT;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => state.rows.length && renderAll(), 250); });
+
+/* ══════════════════════════════════════════════════════════════
+   시작
+   ══════════════════════════════════════════════════════════════ */
+(async function init() {
+  if (!window.echarts || !window.XLSX) {
+    $('loader').innerHTML = '차트·엑셀 라이브러리를 불러오지 못했습니다. 인터넷(CDN: cdnjs.cloudflare.com) 연결을 확인해 주세요.';
+    return;
+  }
+  try { await loadFromServer(); }
+  catch (e) { showOnboard(`${DATA_FILE} 읽기 실패 (${e.message})`); }
+})();
+</script>
+</body>
+</html>
