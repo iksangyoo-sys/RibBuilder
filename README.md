@@ -3,6 +3,8 @@
 엑셀 파일의 사용자 지정 리본(customUI)을 브라우저에서 설계하는 웹앱입니다.
 서버 없이 동작하며, 파일은 외부로 전송되지 않습니다.
 
+바로 쓰기: https://iksangyoo-sys.github.io/RibBuilder/ (main에 올리면 GitHub Actions가 자동으로 빌드해 올립니다.)
+
 ## 실행
 
 ```bash
