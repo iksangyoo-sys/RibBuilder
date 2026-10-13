@@ -34,6 +34,9 @@ jobs:
         run: cmp dist/index.html ribbon-editor.html || (echo "::error::ribbon-editor.html이 소스와 다릅니다. npm run build 후 dist/index.html을 ribbon-editor.html로 복사해 커밋하세요." && exit 1)
       # 예전 주소(…/RibBuilder/ribbon-editor.html)도 계속 열리게 한다.
       - run: cp dist/index.html dist/ribbon-editor.html
+      # 정비비 대시보드(…/RibBuilder/dashboard/)도 함께 올린다. data.xlsx를 main에 올리면 다시 배포된다.
+      - name: Add dashboard
+        run: mkdir -p dist/dashboard && cp dashboard/index.html dashboard/data.xlsx dist/dashboard/
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

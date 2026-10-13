@@ -2,7 +2,13 @@
 
 `index.html` 하나로 동작하는 임직원용 대시보드입니다. 같은 폴더의 `data.xlsx`를 읽어 분석합니다.
 
-## 실행
+## 바로 보기
+
+https://iksangyoo-sys.github.io/RibBuilder/dashboard/
+
+`main`에 `dashboard/index.html`이나 `data.xlsx`를 올리면 GitHub Actions가 1~2분 안에 다시 배포합니다. 열려 있는 화면도 배포가 끝난 뒤 다음 변경 확인 때(60초마다) 자동으로 갱신됩니다.
+
+## 직접 실행
 
 브라우저 보안 정책 때문에 `index.html`을 더블클릭(file://)하면 `data.xlsx`를 자동으로 읽지 못합니다. 아래 중 하나로 여세요.
 
