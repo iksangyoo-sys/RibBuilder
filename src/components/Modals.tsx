@@ -5,7 +5,7 @@ import { PREFIX } from "@/model/ids";
 import { findControl } from "@/model/walk";
 import type { Control } from "@/model/types";
 import { vbaNameError } from "@/vba/names";
-import { KIND_NAME, SIG, fieldKind, signatureClash } from "@/vba/generate";
+import { KIND_NAME, SIG, collectCallbacks, fieldKind, signatureClash } from "@/vba/generate";
 import { useEditorStore } from "@/store/useEditorStore";
 
 export function HelpModal({ onClose }: { onClose: () => void }) {
@@ -145,11 +145,16 @@ export function IconModal({ controlUid, onClose }: { controlUid: string; onClose
 export function MacroManager({ onClose, onCreate }: { onClose: () => void; onCreate: () => void }) {
   const macros = useEditorStore((s) => s.macros);
   const remove = useEditorStore((s) => s.removeMacro);
+  const removeMany = useEditorStore((s) => s.removeMacros);
   const [tab, setTab] = useState<"file" | "builder" | "manual">("builder");
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   const addMacro = useEditorStore((s) => s.addMacro);
+  const ribbon = useEditorStore((s) => s.ribbon);
   const list = macros.filter((m) => m.source === tab);
+  // 리본 어디에도 연결되지 않은 매크로 (컨트롤을 지워도 목록에는 남는다).
+  const used = new Set(collectCallbacks(ribbon).map((c) => c.name));
+  const unused = macros.filter((m) => m.source !== "file" && !used.has(m.name));
   return (
     <Backdrop onClose={onClose}>
       <h3 className="mb-2 text-lg font-bold">매크로 관리</h3>
@@ -161,11 +166,19 @@ export function MacroManager({ onClose, onCreate }: { onClose: () => void; onCre
       <ul className="mb-3 max-h-48 overflow-auto">
         {list.length ? list.map((m) => (
           <li key={m.name} className="flex justify-between border-b border-line py-1">
-            <span>{m.name}</span>
+            <span>
+              {m.name}
+              <span className={`ml-2 text-xs ${used.has(m.name) ? "text-leaf" : "text-mute"}`}>{used.has(m.name) ? "사용 중" : "사용 안 함"}</span>
+            </span>
             {m.source !== "file" ? <button type="button" className="text-clay" onClick={() => remove(m.name)}>삭제</button> : null}
           </li>
         )) : <li className="text-mute">목록이 없습니다.</li>}
       </ul>
+      {unused.length ? (
+        <button type="button" className="mb-3 rounded border border-clay px-3 py-1 text-sm text-clay" onClick={() => removeMany(unused.map((m) => m.name))}>
+          사용 안 하는 매크로 모두 삭제 ({unused.length}개)
+        </button>
+      ) : null}
       {tab === "manual" ? (
         <form className="flex gap-2" onSubmit={(e) => {
           e.preventDefault();

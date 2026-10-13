@@ -9,9 +9,9 @@ import { useEditorStore } from "@/store/useEditorStore";
 import { KIND_NAME, fieldKind, signatureClash } from "@/vba/generate";
 import { useState } from "react";
 
-type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void };
+type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void; onManageMacros: () => void };
 
-export function Properties({ onDelete, onIcon, onNewMacro }: Props) {
+export function Properties({ onDelete, onIcon, onNewMacro, onManageMacros }: Props) {
   const selection = useEditorStore((s) => s.selection);
   return (
     <aside className="flex min-h-0 flex-col border-l border-line bg-card">
@@ -25,7 +25,7 @@ export function Properties({ onDelete, onIcon, onNewMacro }: Props) {
         ) : null}
         {selection.kind === "tab" ? <TabProps uid={selection.uid} /> : null}
         {selection.kind === "group" ? <GroupProps uid={selection.uid} /> : null}
-        {selection.kind === "control" ? <ControlProps uid={selection.uid} onIcon={onIcon} onNewMacro={onNewMacro} /> : null}
+        {selection.kind === "control" ? <ControlProps uid={selection.uid} onIcon={onIcon} onNewMacro={onNewMacro} onManageMacros={onManageMacros} /> : null}
       </div>
     </aside>
   );
@@ -96,7 +96,7 @@ function GroupProps({ uid }: { uid: string }) {
   );
 }
 
-function ControlProps({ uid, onIcon, onNewMacro }: { uid: string; onIcon: () => void; onNewMacro: (key: string) => void }) {
+function ControlProps({ uid, onIcon, onNewMacro, onManageMacros }: { uid: string; onIcon: () => void; onNewMacro: (key: string) => void; onManageMacros: () => void }) {
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
   const images = useEditorStore((s) => s.images);
@@ -152,7 +152,7 @@ function ControlProps({ uid, onIcon, onNewMacro }: { uid: string; onIcon: () => 
         ) : null}
       </Card>
       <Card title="콜백 (VBA)">
-        <MacroField control={c} macros={macros} onNew={onNewMacro} onChange={(key, value) => set({ [key]: value } as Partial<Control>)} />
+        <MacroField control={c} macros={macros} onNew={onNewMacro} onManage={onManageMacros} onChange={(key, value) => set({ [key]: value } as Partial<Control>)} />
       </Card>
       {showWidth ? (
         <Field label="너비 (글자 수)" hint="엑셀은 sizeString으로 입력칸 너비를 정합니다. 비우면 기본 너비를 씁니다.">
@@ -208,11 +208,12 @@ function IdField({ value, onChange }: { value: string; onChange: (id: string) =>
 }
 
 function MacroField({
-  control, macros, onNew, onChange,
+  control, macros, onNew, onManage, onChange,
 }: {
   control: Control;
   macros: { name: string }[];
   onNew: (key: string) => void;
+  onManage: () => void;
   onChange: (key: string, value: string) => void;
 }) {
   const fields: { key: string; label: string; value: string }[] = [];
@@ -249,6 +250,7 @@ function MacroField({
           <span className="mb-1 block font-semibold">{f.label}</span>
           <select className="w-full rounded border border-line bg-white px-2 py-1.5" value={f.value} onChange={(e) => {
             if (e.target.value === "__new__") { onNew(f.key); return; }
+            if (e.target.value === "__manage__") { onManage(); return; }
             if (control.type === "splitButton" && f.key === "onAction") {
               useEditorStore.getState().patchControl(control.uid, { button: { ...control.button, onAction: e.target.value } } as Partial<Control>);
             } else onChange(f.key, e.target.value);
@@ -265,6 +267,7 @@ function MacroField({
             })}
             {f.value && !macros.some((m) => m.name === f.value) ? <option value={f.value}>{f.value}</option> : null}
             <option value="__new__">➕ 새 매크로 만들기…</option>
+            <option value="__manage__">⚙ 매크로 관리…</option>
           </select>
         </label>
       ))}
