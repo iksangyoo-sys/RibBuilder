@@ -176,11 +176,25 @@ export function SavedModal({
     <Backdrop onClose={onClose}>
       <h3 className="mb-2 text-lg font-bold">저장했습니다</h3>
       <p className="mb-2 text-sm">파일 이름: <b>{fileName}</b></p>
-      <ol className="list-decimal space-y-1 pl-5 text-sm">
-        <li>내려받은 파일을 엑셀에서 엽니다.</li>
-        {!includeVba && hasCallback ? <li>매크로를 쓰려면 .xlsm으로 저장하고 VBA 코드를 붙여넣어야 합니다.</li> : null}
-        {!includeVba ? <li>Alt+F11 → 삽입 → 모듈 → [XML 내보내기]의 VBA 코드를 붙여 넣습니다.</li> : <li>매크로를 신뢰한 뒤 단추를 눌러 동작을 확인합니다.</li>}
-      </ol>
+      {includeVba ? (
+        <ol className="list-decimal space-y-1 pl-5 text-sm">
+          {/* 인터넷에서 받은 파일은 Windows가 매크로를 막는다 ("보안 위험" 막대). */}
+          <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인.</li>
+          <li>엑셀에서 열고, 노란 막대가 나오면 <b>콘텐츠 사용</b>을 누릅니다.</li>
+          <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
+          <li>Alt+F11 → <b>RibbonCallbacks</b> 모듈의 TODO 자리에 실제 코드를 채웁니다.</li>
+        </ol>
+      ) : (
+        <ol className="list-decimal space-y-1 pl-5 text-sm">
+          <li>내려받은 파일을 엑셀에서 엽니다.</li>
+          {hasCallback ? (
+            <>
+              <li>Alt+F11 → 삽입 → 모듈 → 아래쪽 VBA 패널의 코드를 붙여 넣습니다.</li>
+              <li>매크로가 들어가야 하므로 <b>.xlsm</b>(매크로 사용 통합 문서)으로 저장합니다.</li>
+            </>
+          ) : null}
+        </ol>
+      )}
       <button type="button" className="mt-4 rounded bg-pine px-3 py-1 text-white" onClick={onClose}>확인</button>
     </Backdrop>
   );
