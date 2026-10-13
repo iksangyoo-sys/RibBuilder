@@ -39,4 +39,17 @@ describe("generateVba", () => {
     expect(vba).toContain("Sub dd_First(control As IRibbonControl, ByRef returnedVal)");
     expect(vba).toContain('    returnedVal = "youtube"');
   });
+
+  it("연결된 매크로가 모두 파일에 있으면 그렇다고 알려 준다", () => {
+    const issuer = new IdIssuer();
+    const tab = createCustomTab(issuer, 1);
+    const g = createGroup(issuer);
+    const btn = createControl(issuer, "button");
+    if (btn.type === "button") btn.onAction = "btn_메일발송";
+    g.controls.push(btn);
+    tab.groups.push(g);
+    const vba = generateVba({ tabs: [tab] }, [{ name: "btn_메일발송", source: "file" }]);
+    expect(vba).toContain("이미 있습니다");
+    expect(vba).not.toContain("Sub btn_메일발송");
+  });
 });

@@ -63,7 +63,11 @@ function addControlCallbacks(c: Control, list: CallbackRef[]): void {
 export function generateVba(doc: RibbonDoc, macros: MacroDef[] = []): string {
   const skip = new Set(macros.filter((m) => m.source === "file").map((m) => m.name));
   const bodies = new Map(macros.filter((m) => m.body).map((m) => [m.name, m.body!]));
-  const callbacks = collectCallbacks(doc).filter((c) => !skip.has(c.name));
+  const all = collectCallbacks(doc);
+  const callbacks = all.filter((c) => !skip.has(c.name));
+  if (!callbacks.length && all.length) {
+    return `' 연결된 매크로는 모두 이 파일의 VBA에 이미 있습니다.\r\n' 새로 붙여 넣을 코드가 없습니다.\r\n`;
+  }
   if (!callbacks.length) {
     return `' 연결된 매크로가 없습니다.\r\n' 컨트롤 속성에서 매크로를 고르면 여기에 코드가 만들어집니다.\r\n`;
   }
