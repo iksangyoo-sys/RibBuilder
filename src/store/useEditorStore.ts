@@ -57,6 +57,10 @@ export interface EditorState {
   addTab: () => void;
   addBuiltinTab: (idMso: string) => void;
   addGroup: (tabUid: string) => void;
+  /** 기본 탭의 그룹 사이에 새 그룹을 넣는다 (beforeMso 앞, 없으면 탭 끝). */
+  addGroupAt: (tabUid: string, beforeMso?: string) => void;
+  /** 탭 줄의 기본 탭 사이에 새 사용자 탭을 넣는다 (beforeMso 앞, 없으면 끝). */
+  addTabAt: (beforeMso?: string) => void;
   addControl: (groupUid: string, type: ControlType, beforeUid?: string) => void;
   addControlToSelection: (type: ControlType) => string | null;
   addBuiltinGroup: (tabUid: string, idMso: BuiltinGroupId) => string | null;
@@ -341,6 +345,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
         s.ribbon.tabs.push(tab);
         s.selection = { kind: "tab", uid: tab.uid };
       }),
+    addTabAt: (beforeMso) =>
+      commit((s) => {
+        const issuer = issuerFromRibbon(s.ribbon);
+        const tab = createCustomTab(issuer, nextTabIndex(s.ribbon.tabs));
+        // 같은 자리에 여러 탭을 넣어도 넣은 순서대로 놓이도록 "다음 기본 탭 앞"으로 지정한다.
+        tab.insertBeforeMso = beforeMso ?? "";
+        tab.insertAfterMso = "";
+        s.ribbon.tabs.push(tab);
+        s.selection = { kind: "tab", uid: tab.uid };
+      }),
     addBuiltinTab: (idMso) =>
       commit((s) => {
         if (s.ribbon.tabs.some((t) => t.kind === "builtin" && t.idMso === idMso)) return;
@@ -361,6 +375,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
         if (!tab) return;
         const issuer = issuerFromRibbon(s.ribbon);
         const group = createGroup(issuer, nextGroupLabel(tab.groups));
+        tab.groups.push(group);
+        s.selection = { kind: "group", uid: group.uid };
+      }),
+    addGroupAt: (tabUid, beforeMso) =>
+      commit((s) => {
+        const tab = findTab(s.ribbon, tabUid);
+        if (!tab) return;
+        const issuer = issuerFromRibbon(s.ribbon);
+        const group = createGroup(issuer, nextGroupLabel(tab.groups));
+        if (beforeMso) group.insertBeforeMso = beforeMso;
         tab.groups.push(group);
         s.selection = { kind: "group", uid: group.uid };
       }),

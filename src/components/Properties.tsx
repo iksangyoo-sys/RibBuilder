@@ -1,4 +1,4 @@
-import { BUILTIN_TABS } from "@/constants/idMso";
+import { BUILTIN_TABS, builtinGroupsOf } from "@/constants/idMso";
 import { CONTROL_NAME } from "@/constants/controls";
 import type { Control, ListItem } from "@/model/types";
 import { findControl, findGroup, findTab } from "@/model/walk";
@@ -6,12 +6,13 @@ import { allXmlIds } from "@/model/walk";
 import { isXmlId } from "@/model/ids";
 import { createButton, createItem, issuerFromRibbon } from "@/model/factory";
 import { useEditorStore } from "@/store/useEditorStore";
+import { vbaNameError } from "@/vba/names";
 import { KIND_NAME, fieldKind, signatureClash } from "@/vba/generate";
 import { useEffect, useState } from "react";
 
-type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void; onManageMacros: () => void };
+type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void };
 
-export function Properties({ onDelete, onIcon, onNewMacro, onManageMacros }: Props) {
+export function Properties({ onDelete, onIcon, onNewMacro }: Props) {
   const selection = useEditorStore((s) => s.selection);
   return (
     <aside className="flex min-h-0 flex-col border-l border-line bg-card">
@@ -25,7 +26,7 @@ export function Properties({ onDelete, onIcon, onNewMacro, onManageMacros }: Pro
         ) : null}
         {selection.kind === "tab" ? <TabProps uid={selection.uid} /> : null}
         {selection.kind === "group" ? <GroupProps uid={selection.uid} /> : null}
-        {selection.kind === "control" ? <ControlProps uid={selection.uid} onIcon={onIcon} onNewMacro={onNewMacro} onManageMacros={onManageMacros} /> : null}
+        {selection.kind === "control" ? <ControlProps uid={selection.uid} onIcon={onIcon} onNewMacro={onNewMacro} /> : null}
       </div>
     </aside>
   );
@@ -33,9 +34,9 @@ export function Properties({ onDelete, onIcon, onNewMacro, onManageMacros }: Pro
 
 function Card({ title, extra, children }: { title: string; extra?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="mb-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-bold">{title}</h3>
+    <section className="mb-4 rounded-xl border border-line bg-white/60 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-pine">{title}</h3>
         {extra}
       </div>
       {children}
@@ -70,10 +71,18 @@ function TabProps({ uid }: { uid: string }) {
       <IdField value={tab.id} onChange={(id) => patchTab(uid, { id })} />
       <Field label="레이블"><input className="w-full rounded border border-line bg-white px-2 py-1.5" value={tab.label} onChange={(e) => patchTab(uid, { label: e.target.value })} /></Field>
       <Field label="keytip"><input className="w-full rounded border border-line bg-white px-2 py-1.5" maxLength={3} value={tab.keytip} onChange={(e) => patchTab(uid, { keytip: e.target.value })} /></Field>
-      <Field label="위치 (insertAfterMso)">
-        <select className="w-full rounded border border-line bg-white px-2 py-1.5" value={tab.insertAfterMso} onChange={(e) => patchTab(uid, { insertAfterMso: e.target.value, insertBeforeMso: "" })}>
-          <option value="">(없음)</option>
-          {BUILTIN_TABS.map((t) => <option key={t.idMso} value={t.idMso}>{t.label} 뒤</option>)}
+      <Field label="위치" hint="탭 줄에서 탭 사이에 마우스를 올려 + 를 눌러도 됩니다.">
+        <select
+          className="w-full rounded border border-line bg-white px-2 py-1.5"
+          value={tab.insertBeforeMso ? `before:${tab.insertBeforeMso}` : tab.insertAfterMso ? `after:${tab.insertAfterMso}` : ""}
+          onChange={(e) => {
+            const [where, idMso] = e.target.value.split(":");
+            patchTab(uid, { insertBeforeMso: where === "before" ? idMso : "", insertAfterMso: where === "after" ? idMso : "" });
+          }}
+        >
+          <option value="">맨 뒤</option>
+          {BUILTIN_TABS.map((t) => <option key={`b${t.idMso}`} value={`before:${t.idMso}`}>{t.label} 앞</option>)}
+          {BUILTIN_TABS.map((t) => <option key={`a${t.idMso}`} value={`after:${t.idMso}`}>{t.label} 뒤</option>)}
         </select>
       </Field>
     </Card>
@@ -88,15 +97,33 @@ function GroupProps({ uid }: { uid: string }) {
   if (found.group.kind === "builtin") {
     return <Card title="내장 그룹"><p className="text-sm text-mute">{found.group.displayName} ({found.group.idMso}) 은 잠겨 있습니다. 순서 이동과 삭제만 됩니다.</p></Card>;
   }
+  const group = found.group;
+  const base = found.tab.kind === "builtin" ? builtinGroupsOf(found.tab.idMso) : [];
   return (
     <Card title="그룹">
-      <IdField value={found.group.id} onChange={(id) => patchGroup(uid, { id })} />
-      <Field label="레이블"><input className="w-full rounded border border-line bg-white px-2 py-1.5" value={found.group.label} onChange={(e) => patchGroup(uid, { label: e.target.value })} /></Field>
+      <IdField value={group.id} onChange={(id) => patchGroup(uid, { id })} />
+      <Field label="레이블"><input className="w-full rounded border border-line bg-white px-2 py-1.5" value={group.label} onChange={(e) => patchGroup(uid, { label: e.target.value })} /></Field>
+      {base.length ? (
+        <Field label="위치" hint={`${found.tab.label} 탭의 기본 그룹 사이에 둡니다. 그룹 사이에 마우스를 올려 + 를 눌러도 됩니다.`}>
+          <select
+            className="w-full rounded border border-line bg-white px-2 py-1.5"
+            value={group.insertBeforeMso ? `before:${group.insertBeforeMso}` : group.insertAfterMso ? `after:${group.insertAfterMso}` : ""}
+            onChange={(e) => {
+              const [where, idMso] = e.target.value.split(":");
+              patchGroup(uid, { insertBeforeMso: where === "before" ? idMso : undefined, insertAfterMso: where === "after" ? idMso : undefined });
+            }}
+          >
+            <option value="">맨 뒤</option>
+            {base.map((b) => <option key={b.idMso} value={`before:${b.idMso}`}>{b.label} 앞</option>)}
+            {group.insertAfterMso ? <option value={`after:${group.insertAfterMso}`}>{base.find((b) => b.idMso === group.insertAfterMso)?.label ?? group.insertAfterMso} 뒤</option> : null}
+          </select>
+        </Field>
+      ) : null}
     </Card>
   );
 }
 
-function ControlProps({ uid, onIcon, onNewMacro, onManageMacros }: { uid: string; onIcon: () => void; onNewMacro: (key: string) => void; onManageMacros: () => void }) {
+function ControlProps({ uid, onIcon, onNewMacro }: { uid: string; onIcon: () => void; onNewMacro: (key: string) => void }) {
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
   const images = useEditorStore((s) => s.images);
@@ -152,7 +179,10 @@ function ControlProps({ uid, onIcon, onNewMacro, onManageMacros }: { uid: string
         ) : null}
       </Card>
       <Card title="콜백 (VBA)">
-        <MacroField control={c} macros={macros} onNew={onNewMacro} onManage={onManageMacros} onChange={(key, value) => set({ [key]: value } as Partial<Control>)} />
+        <MacroField control={c} macros={macros} onNew={onNewMacro} onChange={(key, value) => set({ [key]: value } as Partial<Control>)} />
+      </Card>
+      <Card title="도움말">
+        <TipField control={c} set={set} />
       </Card>
       {showWidth ? (
         <Field label="너비 (글자 수)" hint="엑셀은 sizeString으로 입력칸 너비를 정합니다. 비우면 기본 너비를 씁니다.">
@@ -213,17 +243,20 @@ function IdField({ value, onChange }: { value: string; onChange: (id: string) =>
 }
 
 function MacroField({
-  control, macros, onNew, onManage, onChange,
+  control, macros, onNew, onChange,
 }: {
   control: Control;
   macros: { name: string }[];
   onNew: (key: string) => void;
-  onManage: () => void;
   onChange: (key: string, value: string) => void;
 }) {
+  // "직접 입력…"을 고른 칸과 입력 중인 이름
+  const [typing, setTyping] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [err, setErr] = useState("");
   const fields: { key: string; label: string; value: string }[] = [];
   if (control.type === "button") {
-    fields.push({ key: "onAction", label: "onAction — 버튼을 눌렀을 때 호출", value: control.onAction });
+    fields.push({ key: "onAction", label: "onAction — 버튼을 클릭했을 때 호출", value: control.onAction });
   }
   if (control.type === "toggleButton") {
     fields.push({ key: "onAction", label: "onAction — 토글 상태가 바뀔 때 호출 (pressed=True/False)", value: control.onAction });
@@ -242,24 +275,46 @@ function MacroField({
     fields.push({ key: "getSelectedItemID", label: "getSelectedItemID — 리본 로드 시 — 초기 선택 항목을 결정", value: control.getSelectedItemID ?? "" });
   }
   if (control.type === "splitButton") {
-    fields.push({ key: "onAction", label: "주 버튼 매크로", value: control.button.onAction });
+    fields.push({ key: "onAction", label: "onAction — 주 버튼을 클릭했을 때 호출", value: control.button.onAction });
   }
   if (!fields.length) return <p className="text-sm text-mute">이 컨트롤은 콜백이 없습니다.</p>;
   const ribbon = useEditorStore.getState().ribbon;
   // 분할버튼의 매크로는 안쪽 주 버튼에 붙는다.
   const ownerUid = control.type === "splitButton" ? control.button.uid : control.uid;
+  const assign = (key: string, name: string) => {
+    if (control.type === "splitButton" && key === "onAction") {
+      useEditorStore.getState().patchControl(control.uid, { button: { ...control.button, onAction: name } } as Partial<Control>);
+    } else onChange(key, name);
+  };
+  const applyTyped = (key: string) => {
+    const name = draft.trim();
+    const msg = vbaNameError(name);
+    if (msg) { setErr(msg); return; }
+    const clash = signatureClash(ribbon, name, fieldKind(control.type, key), ownerUid, key);
+    if (clash) { setErr(`${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}에 이미 쓰는 매크로라 형식이 맞지 않습니다.`); return; }
+    // 먼저 연결한 뒤 목록에 넣는다 (연결 없는 매크로는 목록에서 정리되므로).
+    assign(key, name);
+    useEditorStore.getState().addMacro({ name, source: "manual" });
+    setTyping(null);
+    setDraft("");
+    setErr("");
+  };
   return (
     <>
       {fields.map((f) => (
-        <label key={f.key} className="mb-3 block text-sm">
-          <span className="mb-1 block font-semibold">{f.label}</span>
-          <select className="w-full rounded border border-line bg-white px-2 py-1.5" value={f.value} onChange={(e) => {
-            if (e.target.value === "__new__") { onNew(f.key); return; }
-            if (e.target.value === "__manage__") { onManage(); return; }
-            if (control.type === "splitButton" && f.key === "onAction") {
-              useEditorStore.getState().patchControl(control.uid, { button: { ...control.button, onAction: e.target.value } } as Partial<Control>);
-            } else onChange(f.key, e.target.value);
-          }}>
+        <div key={f.key} className="mb-3 text-sm">
+          <span className="mb-1 block text-mute">{f.label}</span>
+          <select
+            className="w-full rounded-md border border-line bg-white px-3 py-2"
+            value={typing === f.key ? "__type__" : f.value}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "__new__") { setTyping(null); onNew(f.key); return; }
+              if (v === "__type__") { setTyping(f.key); setDraft(""); setErr(""); return; }
+              setTyping(null);
+              assign(f.key, v);
+            }}
+          >
             <option value="">— 선택 안 함 —</option>
             {macros.map((m) => {
               // 형식(서명)이 다른 콜백에 이미 쓰인 매크로는 고를 수 없게 한다.
@@ -271,11 +326,47 @@ function MacroField({
               );
             })}
             {f.value && !macros.some((m) => m.name === f.value) ? <option value={f.value}>{f.value}</option> : null}
-            <option value="__new__">➕ 새 매크로 만들기…</option>
-            <option value="__manage__">⚙ 매크로 관리…</option>
+            <option value="__type__">✏️ 직접 입력...</option>
+            <option value="__new__">➕ 새 매크로 만들기</option>
           </select>
-        </label>
+          {typing === f.key ? (
+            <div className="mt-2">
+              <div className="flex gap-2">
+                <input
+                  className="min-w-0 flex-1 rounded-md border border-line bg-white px-3 py-2"
+                  placeholder="매크로 이름 (예: btn_OpenChatGPT)"
+                  value={draft}
+                  autoFocus
+                  onChange={(e) => { setDraft(e.target.value); setErr(""); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); applyTyped(f.key); }
+                    if (e.key === "Escape") { e.preventDefault(); setTyping(null); }
+                  }}
+                />
+                <button type="button" className="rounded-md bg-pine px-3 text-white" onClick={() => applyTyped(f.key)}>확인</button>
+                <button type="button" className="rounded-md border border-line px-3" onClick={() => setTyping(null)}>취소</button>
+              </div>
+              {err ? <p className="mt-1 text-xs text-clay">{err}</p> : <p className="mt-1 text-xs text-mute">이미 VBA에 있는 매크로 이름을 그대로 적으세요.</p>}
+            </div>
+          ) : null}
+        </div>
       ))}
+    </>
+  );
+}
+
+/** 마우스를 올리면 보이는 도움말 (screentip: 굵은 제목, supertip: 설명). */
+function TipField({ control, set }: { control: Control; set: (p: Partial<Control>) => void }) {
+  return (
+    <>
+      <label className="mb-3 block text-sm">
+        <span className="mb-1 block text-mute">screentip</span>
+        <input className="w-full rounded-md border border-line bg-white px-3 py-2" value={control.screentip} onChange={(e) => set({ screentip: e.target.value })} />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block text-mute">supertip</span>
+        <input className="w-full rounded-md border border-line bg-white px-3 py-2" value={control.supertip} onChange={(e) => set({ supertip: e.target.value })} />
+      </label>
     </>
   );
 }
