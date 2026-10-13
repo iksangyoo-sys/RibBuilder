@@ -29,6 +29,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # 저장소의 ribbon-editor.html(더블클릭용)이 소스와 같은지 확인한다. 다르면 npm run build 후 복사해 커밋하세요.
+      - name: Check ribbon-editor.html is up to date
+        run: cmp dist/index.html ribbon-editor.html || (echo "::error::ribbon-editor.html이 소스와 다릅니다. npm run build 후 dist/index.html을 ribbon-editor.html로 복사해 커밋하세요." && exit 1)
+      # 예전 주소(…/RibBuilder/ribbon-editor.html)도 계속 열리게 한다.
+      - run: cp dist/index.html dist/ribbon-editor.html
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
