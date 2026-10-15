@@ -116,7 +116,8 @@ export function officialBuiltinTabs(issuer = new IdIssuer()): BuiltinTab[] {
 }
 
 export function ensureBuiltinTabs(doc: RibbonDoc): RibbonDoc {
-  const issuer = issuerFromDoc(doc.tabs.map((t) => t.uid));
+  // 그룹·컨트롤 uid까지 피해야 새 내장 탭이 불러온 요소와 같은 uid를 받지 않는다.
+  const issuer = issuerFromDoc(allUids(doc));
   const byId = new Map<string, BuiltinTab>();
   for (const tab of doc.tabs) {
     if (tab.kind === "builtin") byId.set(normalizeTabIdMso(tab.idMso), tab);
@@ -128,7 +129,45 @@ export function ensureBuiltinTabs(doc: RibbonDoc): RibbonDoc {
   });
   const extras = doc.tabs.filter((t) => t.kind === "builtin" && !BUILTIN_TABS.some((m) => m.idMso === normalizeTabIdMso(t.idMso)));
   const customs = doc.tabs.filter((t) => t.kind === "custom");
-  return { settings: doc.settings ?? { ...EMPTY_SETTINGS }, tabs: [...builtins, ...extras, ...customs] };
+  return dedupeUids({ settings: doc.settings ?? { ...EMPTY_SETTINGS }, tabs: [...builtins, ...extras, ...customs] });
+}
+
+/**
+ * 같은 uid가 두 번 이상 나오면 뒤에 나온 것에 새 uid를 준다.
+ * 예전 버전이 저장한 초안처럼 내장 탭과 컨트롤의 uid가 겹치면, 컨트롤을 누를 때 엉뚱한 탭이 열린다.
+ */
+export function dedupeUids(doc: RibbonDoc): RibbonDoc {
+  const issuer = new IdIssuer(allUids(doc), 1);
+  const seen = new Set<string>();
+  let changed = false;
+  const fix = <T extends { uid: string }>(node: T): T => {
+    if (!seen.has(node.uid)) {
+      seen.add(node.uid);
+      return node;
+    }
+    changed = true;
+    const uid = issuer.uid();
+    seen.add(uid);
+    return { ...node, uid };
+  };
+  const fixControl = (c: Control): Control => {
+    let out = fix(c);
+    if (out.type === "menu" || out.type === "splitButton") out = { ...out, items: out.items.map(fixControl) } as Control;
+    if (out.type === "splitButton") out = { ...out, button: fix(out.button) } as Control;
+    if (out.type === "comboBox" || out.type === "dropDown") out = { ...out, items: out.items.map((it) => fix(it)) } as Control;
+    return out;
+  };
+  const tabs = doc.tabs.map((tab) => {
+    const t = fix(tab);
+    return {
+      ...t,
+      groups: t.groups.map((g) => {
+        const fg = fix(g);
+        return fg.kind === "custom" ? { ...fg, controls: fg.controls.map(fixControl) } : fg;
+      }),
+    } as typeof tab;
+  });
+  return changed ? { ...doc, tabs } : doc;
 }
 
 export function normalizeTabIdMso(idMso: string): string {
