@@ -2,6 +2,7 @@ import * as CFB from "cfb";
 import { decompressOvba } from "./compress";
 
 interface DirModule {
+  name: string;
   streamName: string;
   offset: number;
 }
@@ -27,9 +28,10 @@ function parseDir(dir: Uint8Array): DirInfo {
     const data = dir.subarray(i, i + length);
     if (id === 0x0003 && length >= 2) info.codePage = view.getUint16(i, true);
     if (id === 0x0019) {
-      current = { streamName: "", offset: 0 };
+      current = { name: decodeText(data, info.codePage), streamName: "", offset: 0 };
       info.modules.push(current);
     }
+    if (current && id === 0x0047) current.name = new TextDecoder("utf-16le").decode(data);
     if (current && id === 0x001a && !current.streamName) current.streamName = decodeText(data, info.codePage);
     if (current && id === 0x0032) current.streamName = new TextDecoder("utf-16le").decode(data);
     if (current && id === 0x0031 && length >= 4) current.offset = view.getUint32(i, true);
@@ -68,8 +70,13 @@ function toBytes(content: CFB.CFB$Blob): Uint8Array {
   return content instanceof Uint8Array ? content : Uint8Array.from(content as number[]);
 }
 
+export interface VbaModule {
+  name: string;
+  code: string;
+}
+
 /** dir 스트림 기준으로 각 모듈의 VBA 소스를 꺼낸다. dir이 없거나 깨졌으면 null. */
-function moduleSources(cfb: CFB.CFB$Container): string[] | null {
+function moduleSources(cfb: CFB.CFB$Container): VbaModule[] | null {
   const vbaEntry = (name: string) => {
     const index = cfb.FullPaths.findIndex((p) => /\/VBA\/[^/]+$/i.test(p) && p.split("/").pop()!.toLowerCase() === name.toLowerCase());
     const entry = index >= 0 ? cfb.FileIndex[index] : undefined;
@@ -84,12 +91,12 @@ function moduleSources(cfb: CFB.CFB$Container): string[] | null {
     return null;
   }
   if (!info.modules.length) return null;
-  const sources: string[] = [];
+  const sources: VbaModule[] = [];
   for (const m of info.modules) {
     const stream = vbaEntry(m.streamName);
     if (!stream || m.offset > stream.length) continue;
     try {
-      sources.push(decodeText(decompressOvba(stream.subarray(m.offset)), info.codePage));
+      sources.push({ name: m.name || m.streamName, code: decodeText(decompressOvba(stream.subarray(m.offset)), info.codePage) });
     } catch {
       /* 손상된 모듈은 건너뛴다 */
     }
@@ -140,7 +147,8 @@ const SUB_RE = /^\s*(?:Public\s+|Private\s+)?(?:Static\s+)?Sub\s+([A-Za-z가-힣
 export function extractPublicSubs(vbaProject: Uint8Array): string[] {
   const cfb = CFB.parse(vbaProject);
   const names = new Set<string>();
-  for (const text of moduleSources(cfb) ?? guessSources(cfb)) {
+  const texts = moduleSources(cfb)?.map((m) => m.code) ?? guessSources(cfb);
+  for (const text of texts) {
     SUB_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = SUB_RE.exec(text))) {
@@ -149,4 +157,20 @@ export function extractPublicSubs(vbaProject: Uint8Array): string[] {
     }
   }
   return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+/** 각 모듈의 이름과 코드 (Attribute 줄은 뺀다). 코드가 비어 있는 문서 모듈은 건너뛴다. */
+export function extractModules(vbaProject: Uint8Array): VbaModule[] {
+  const cfb = CFB.parse(vbaProject);
+  const modules = moduleSources(cfb) ?? guessSources(cfb).map((code, i) => ({ name: `Module${i + 1}`, code }));
+  return modules
+    .map((m) => ({
+      name: m.name,
+      code: m.code
+        .split(/\r?\n/)
+        .filter((line) => !/^Attribute\s+VB_/i.test(line))
+        .join("\r\n")
+        .replace(/^(?:\r\n)+|(?:\r\n)+$/g, ""),
+    }))
+    .filter((m) => m.code.trim());
 }

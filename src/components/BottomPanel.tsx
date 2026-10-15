@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generateCustomUi, prettyXml } from "@/xml/generate";
 import { panelVba } from "@/vba/generate";
 import { findControl, findGroup, findTab } from "@/model/walk";
 import { useEditorStore } from "@/store/useEditorStore";
+import { readVbaModules } from "@/ooxml/read";
 
 type Props = {
   collapsed: boolean;
@@ -15,9 +16,14 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
   const hasExistingVba = useEditorStore((s) => s.hasExistingVba);
+  const originBytes = useEditorStore((s) => s.originBytes);
   const selection = useEditorStore((s) => s.selection);
   const xml = prettyXml(generateCustomUi(ribbon));
-  const vba = panelVba(ribbon, macros, hasExistingVba);
+  const newVba = panelVba(ribbon, macros, hasExistingVba);
+  const existingVba = useExistingVba(hasExistingVba ? originBytes : null);
+  const [vbaView, setVbaView] = useState<"new" | "file">("new");
+  const showFile = vbaView === "file" && existingVba !== null;
+  const vba = showFile ? existingVba : newVba;
   const highlightId = selectedXmlId(ribbon, selection);
   const fold = (
     <button
@@ -46,7 +52,22 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
             </>
           }
         />
-        <Pane title="VBA 코드 (모듈에 붙여넣기)" text={vba} collapsed={collapsed} extra={fold} />
+        <Pane
+          title={showFile ? "VBA 코드 (파일에 있는 코드 · 읽기 전용)" : "VBA 코드 (모듈에 붙여넣기)"}
+          text={vba}
+          collapsed={collapsed}
+          extra={
+            <>
+              {existingVba !== null ? (
+                <div className="flex overflow-hidden rounded border border-line text-xs" role="group" aria-label="VBA 코드 보기 전환">
+                  <button type="button" className={`px-1.5 py-0.5 ${showFile ? "text-mute hover:bg-mist" : "bg-mist font-semibold"}`} aria-pressed={!showFile} onClick={() => setVbaView("new")}>새 코드</button>
+                  <button type="button" className={`border-l border-line px-1.5 py-0.5 ${showFile ? "bg-mist font-semibold" : "text-mute hover:bg-mist"}`} aria-pressed={showFile} onClick={() => setVbaView("file")}>파일의 기존 코드</button>
+                </div>
+              ) : null}
+              {fold}
+            </>
+          }
+        />
       </div>
     </section>
   );
@@ -118,4 +139,28 @@ function selectedXmlId(ribbon: ReturnType<typeof useEditorStore.getState>["ribbo
   }
   if (selection.kind === "control") return findControl(ribbon, selection.uid)?.control.id;
   return undefined;
+}
+
+/** 불러온 파일의 VBA 모듈을 읽어 한 덩어리 텍스트로 만든다. VBA가 없으면 null. */
+function useExistingVba(bytes: Uint8Array | null): string | null {
+  const [text, setText] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!bytes) {
+      setText(null);
+      return;
+    }
+    void readVbaModules(bytes).then((modules) => {
+      if (!alive) return;
+      setText(
+        modules.length
+          ? modules.map((m) => `' ===== ${m.name} =====\r\n${m.code}`).join("\r\n\r\n")
+          : "' 이 파일의 VBA 코드를 읽지 못했습니다.\r\n' (암호로 잠긴 프로젝트이거나 형식이 다를 수 있습니다)",
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, [bytes]);
+  return text;
 }
