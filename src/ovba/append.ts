@@ -7,7 +7,7 @@ import { decodeText as decodeVbaText } from "./extract";
  * 엑셀이 저장한 vbaProject.bin에 표준 모듈 하나를 더한다. 기존 모듈과 코드는 그대로 둔다.
  *
  * - dir 스트림에 모듈 레코드를 덧붙이고 PROJECT·PROJECTwm에도 이름을 더한다.
- * - _VBA_PROJECT를 버전 0xFFFF 머리말로 바꿔, 엑셀이 저장된 컴파일 캐시(p-code·__SRP_*) 대신
+ * - _VBA_PROJECT를 버전 0xFFFF 머리말로 바꾸고 __SRP_* 캐시를 비워, 엑셀이 저장된 컴파일 캐시 대신
  *   각 모듈의 소스로 다시 컴파일하게 한다.
  */
 
@@ -151,6 +151,15 @@ export function appendModule(vbaProject: Uint8Array, source: string, baseName = 
 
   // 컴파일 캐시를 무효로 해서 엑셀이 소스로 다시 컴파일하게 한다.
   setEntry(cfb, "/VBA/_VBA_PROJECT", Uint8Array.from([0xcc, 0x61, 0xff, 0xff, 0x00, 0x00, 0x00]));
+  // __SRP_* 는 위 캐시와 짝을 이루는 성능 캐시다. _VBA_PROJECT만 무효로 하고 이것을 남기면
+  // 엑셀(VBE7.DLL)이 파일을 여는 순간 강제 종료된다. 스트림은 지우지 않고 비운다
+  // (cfb 라이브러리로 지우면 컨테이너가 깨진다).
+  cfb.FileIndex.forEach((entry, i) => {
+    if (entry.type === 2 && /\/__SRP_[0-9a-f]+$/i.test(cfb.FullPaths[i])) {
+      entry.content = new Uint8Array(0);
+      entry.size = 0;
+    }
+  });
 
   return { ok: true, bytes: Uint8Array.from(CFB.write(cfb, { type: "array" }) as number[]), moduleName: name };
 }
