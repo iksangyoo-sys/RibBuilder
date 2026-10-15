@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { generateCustomUi, prettyXml } from "@/xml/generate";
 import { collectCallbacks, generateVba, panelVba } from "@/vba/generate";
 import { combinedVba } from "@/vba/combined";
@@ -34,6 +34,7 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
     );
   const vba = combined ? combined.text : panelVba(ribbon, macros, hasExistingVba);
   const highlightId = selectedXmlId(ribbon, selection);
+  const [height, resizeHandle] = useResizableHeight();
   const fold = (
     <button
       type="button"
@@ -47,11 +48,13 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
 
   return (
     <section className="border-t border-line bg-card">
+      {collapsed ? null : resizeHandle}
       <div className="grid grid-cols-2 divide-x divide-line">
         <Pane
           title="XML 미리보기"
           text={xml}
           highlight={highlightId}
+          height={height}
           collapsed={collapsed}
           extra={
             <>
@@ -65,6 +68,7 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
           title={combined ? "VBA 코드 (저장 후 파일의 VBA · 새로 추가되는 부분은 초록색)" : "VBA 코드 (모듈에 붙여넣기)"}
           text={vba}
           markFrom={combined?.addedFrom}
+          height={height}
           collapsed={collapsed}
           extra={fold}
         />
@@ -74,13 +78,15 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
 }
 
 function Pane({
-  title, text, highlight, markFrom, collapsed, extra,
+  title, text, highlight, markFrom, height, collapsed, extra,
 }: {
   title: string;
   text: string;
   highlight?: string;
   /** 이 줄부터 끝까지 배경을 칠한다 (새로 추가되는 코드). */
   markFrom?: number;
+  /** 코드 영역 높이(px). */
+  height: number;
   collapsed: boolean;
   extra?: React.ReactNode;
 }) {
@@ -93,7 +99,7 @@ function Pane({
           <CopyButton text={text} />
         </div>
       </div>
-      {collapsed ? null : <CodeBlock text={text} highlight={highlight} markFrom={markFrom} />}
+      {collapsed ? null : <CodeBlock text={text} highlight={highlight} markFrom={markFrom} height={height} />}
     </div>
   );
 }
@@ -116,10 +122,10 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function CodeBlock({ text, highlight, markFrom }: { text: string; highlight?: string; markFrom?: number }) {
+function CodeBlock({ text, highlight, markFrom, height }: { text: string; highlight?: string; markFrom?: number; height: number }) {
   const lines = text.split(/\r?\n/);
   return (
-    <pre className="h-52 overflow-auto bg-[#f3f1ec] px-3 pb-3 font-mono text-xs leading-5">
+    <pre className="overflow-auto bg-[#f3f1ec] px-3 pb-3 font-mono text-xs leading-5" style={{ height }}>
       {lines.map((line, i) => (
         <div key={i} className={highlight && line.includes(`id="${highlight}"`) ? "bg-mist" : markFrom !== undefined && markFrom >= 0 && i >= markFrom ? "bg-emerald-50" : ""}>
           <span className="mr-3 inline-block w-6 text-right text-mute/70">{i + 1}</span>
@@ -160,4 +166,80 @@ function useExistingModules(bytes: Uint8Array | null): VbaModule[] | null | unde
     };
   }, [bytes]);
   return modules;
+}
+
+const HEIGHT_KEY = "ribbon-builder-bottom-panel-height";
+const DEFAULT_HEIGHT = 208;
+const MIN_HEIGHT = 80;
+/** 위쪽 리본 편집 영역이 너무 작아지지 않게 남겨 둘 높이. */
+const KEEP_ABOVE = 260;
+
+function clampHeight(h: number): number {
+  // 창이 최소화됐거나 숨겨져 높이를 모를 때(0 등)는 위쪽 한도를 두지 않는다.
+  const max = window.innerHeight > KEEP_ABOVE + MIN_HEIGHT ? window.innerHeight - KEEP_ABOVE : Number.POSITIVE_INFINITY;
+  return Math.round(Math.min(Math.max(h, MIN_HEIGHT), max));
+}
+
+function loadHeight(): number {
+  try {
+    const v = Number(localStorage.getItem(HEIGHT_KEY));
+    if (Number.isFinite(v) && v > 0) return clampHeight(v);
+  } catch {
+    /* 저장소를 쓸 수 없으면 기본값 */
+  }
+  return DEFAULT_HEIGHT;
+}
+
+/** 하단 패널 코드 영역 높이: 위쪽 막대를 끌거나(더블클릭은 기본값) ↑↓ 키로 조절하고 브라우저에 기억한다. */
+function useResizableHeight(): [number, React.ReactNode] {
+  const [height, setHeightRaw] = useState(loadHeight);
+  const drag = useRef<{ y: number; h: number } | null>(null);
+  const setHeight = (h: number) => {
+    const next = clampHeight(h);
+    setHeightRaw(next);
+    try {
+      localStorage.setItem(HEIGHT_KEY, String(next));
+    } catch {
+      /* 무시 */
+    }
+  };
+  useEffect(() => {
+    const onResize = () => setHeightRaw((h) => clampHeight(h));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const handle = (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label="하단 패널 높이 조절 (끌거나 위아래 화살표, 더블클릭하면 기본 높이)"
+      aria-valuenow={height}
+      aria-valuemin={MIN_HEIGHT}
+      tabIndex={0}
+      title="끌어서 높이 조절 · 더블클릭하면 기본 높이"
+      className="group flex h-2 cursor-row-resize touch-none items-center justify-center hover:bg-mist focus:bg-mist focus:outline-none"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { y: e.clientY, h: height };
+      }}
+      onPointerMove={(e) => {
+        if (!drag.current) return;
+        // 위로 끌면 패널이 커진다.
+        setHeight(drag.current.h + (drag.current.y - e.clientY));
+      }}
+      onPointerUp={(e) => {
+        drag.current = null;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+      onDoubleClick={() => setHeight(DEFAULT_HEIGHT)}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowUp") { e.preventDefault(); setHeight(height + 24); }
+        if (e.key === "ArrowDown") { e.preventDefault(); setHeight(height - 24); }
+      }}
+    >
+      <span className="h-0.5 w-10 rounded bg-line group-hover:bg-mute" />
+    </div>
+  );
+  return [height, handle];
 }
