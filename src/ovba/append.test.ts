@@ -78,4 +78,17 @@ describe("appendModule", () => {
     const result = appendModule(Uint8Array.from(CFB.write(cfb, { type: "array" }) as number[]), NEW_SUB);
     expect(result.ok).toBe(false);
   });
+
+  it("엑셀이 남긴 __SRP_* 성능 캐시를 비운다 (남기면 엑셀이 열다가 강제 종료된다)", () => {
+    const cfb = CFB.read(buildVbaProject("Sub btn_Old(control As IRibbonControl)\r\nEnd Sub\r\n"), { type: "array" });
+    for (const name of ["__SRP_0", "__SRP_1", "__SRP_a"]) CFB.utils.cfb_add(cfb, `/VBA/${name}`, Uint8Array.from([1, 2, 3, 4]));
+    const withSrp = Uint8Array.from(CFB.write(cfb, { type: "array" }) as number[]);
+    const result = appendModule(withSrp, NEW_SUB);
+    if (!result.ok) throw new Error(result.reason);
+    const out = CFB.read(result.bytes, { type: "array" });
+    const srp = out.FullPaths.map((p, i) => ({ p, e: out.FileIndex[i] })).filter(({ p }) => /\/__SRP_[0-9a-f]+$/i.test(p));
+    expect(srp.length).toBe(3);
+    for (const { e } of srp) expect(e.size).toBe(0);
+    expect(extractPublicSubs(result.bytes)).toEqual(["btn_Old", "btn_prompt"]);
+  });
 });
