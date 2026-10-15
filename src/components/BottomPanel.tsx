@@ -21,8 +21,10 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
   const xml = prettyXml(generateCustomUi(ribbon));
   const newVba = panelVba(ribbon, macros, hasExistingVba);
   const existingVba = useExistingVba(hasExistingVba ? originBytes : null);
-  const [vbaView, setVbaView] = useState<"new" | "file">("new");
-  const showFile = vbaView === "file" && existingVba !== null;
+  const [vbaView, setVbaView] = useState<"auto" | "new" | "file">("auto");
+  // 직접 고르기 전에는, 새로 붙여 넣을 Sub가 없으면 파일의 기존 코드를 먼저 보여 준다.
+  const hasNewCode = /^\s*Sub\s/im.test(newVba);
+  const showFile = existingVba !== null && (vbaView === "file" || (vbaView === "auto" && !hasNewCode));
   const vba = showFile ? existingVba : newVba;
   const highlightId = selectedXmlId(ribbon, selection);
   const fold = (
