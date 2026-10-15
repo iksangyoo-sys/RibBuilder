@@ -212,11 +212,7 @@ export function SavedModal({
           </div>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
             <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인. <span className="text-clay">(꼭 먼저)</span></li>
-            <li>
-              파일을 추가 기능 폴더로 <b>옮깁니다(복사 말고 잘라내기)</b>. 탐색기 주소창에 <b>{ADDIN_DIR}</b>{" "}
-              <CopyText text={ADDIN_DIR} label="주소 복사" />
-              <br /><span className="text-mute">다운로드 폴더나 바탕화면에 같은 파일을 남기지 마세요.</span>
-            </li>
+            <li>파일을 추가 기능 폴더로 <b>옮깁니다(복사 말고 잘라내기)</b>. 탐색기 주소창에 <b>{ADDIN_DIR}</b> <CopyText text={ADDIN_DIR} label="주소 복사" /><br /><span className="text-mute">다운로드 폴더나 바탕화면에 같은 파일을 남기지 마세요.</span></li>
             <li>엑셀 → <b>개발 도구 → Excel 추가 기능</b>에서 <b>예전 버전의 체크를 먼저 해제</b>하고, 이 파일(<b>{fileName}</b>)을 체크합니다. 예전 파일은 추가 기능 폴더에서 지웁니다.</li>
             <li>.xlam 파일을 <b>더블클릭해서 열지 마세요</b>. 추가 기능은 위 창에서 켜고 끕니다.</li>
             <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
