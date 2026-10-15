@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { generateCustomUi, prettyXml } from "@/xml/generate";
-import { panelVba } from "@/vba/generate";
+import { collectCallbacks, generateVba, panelVba } from "@/vba/generate";
+import { combinedVba } from "@/vba/combined";
 import { findControl, findGroup, findTab } from "@/model/walk";
 import { useEditorStore } from "@/store/useEditorStore";
 import { readVbaModules } from "@/ooxml/read";
+import type { VbaModule } from "@/ovba/extract";
 
 type Props = {
   collapsed: boolean;
@@ -16,16 +18,21 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
   const ribbon = useEditorStore((s) => s.ribbon);
   const macros = useEditorStore((s) => s.macros);
   const hasExistingVba = useEditorStore((s) => s.hasExistingVba);
+  const includeVba = useEditorStore((s) => s.includeVba);
   const originBytes = useEditorStore((s) => s.originBytes);
   const selection = useEditorStore((s) => s.selection);
   const xml = prettyXml(generateCustomUi(ribbon));
-  const newVba = panelVba(ribbon, macros, hasExistingVba);
-  const existingVba = useExistingVba(hasExistingVba ? originBytes : null);
-  const [vbaView, setVbaView] = useState<"auto" | "new" | "file">("auto");
-  // 직접 고르기 전에는, 새로 붙여 넣을 Sub가 없으면 파일의 기존 코드를 먼저 보여 준다.
-  const hasNewCode = /^\s*Sub\s/im.test(newVba);
-  const showFile = existingVba !== null && (vbaView === "file" || (vbaView === "auto" && !hasNewCode));
-  const vba = showFile ? existingVba : newVba;
+  const existing = useExistingModules(hasExistingVba ? originBytes : null);
+  // 기존 VBA가 있으면 "저장 후 파일에 들어갈 VBA" 하나로 보여 준다: 기존 모듈 + 저장할 때 더해질 모듈.
+  // 더해질 코드는 저장(App.tsx)과 같은 옵션으로 만든다.
+  const combined = existing === undefined
+    ? null
+    : combinedVba(
+      existing,
+      generateVba(ribbon, macros, { embedded: true, appendOnly: true }),
+      includeVba && collectCallbacks(ribbon).length > 0,
+    );
+  const vba = combined ? combined.text : panelVba(ribbon, macros, hasExistingVba);
   const highlightId = selectedXmlId(ribbon, selection);
   const fold = (
     <button
@@ -55,20 +62,11 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
           }
         />
         <Pane
-          title={showFile ? "VBA 코드 (파일에 있는 코드 · 읽기 전용)" : "VBA 코드 (모듈에 붙여넣기)"}
+          title={combined ? "VBA 코드 (저장 후 파일의 VBA · 새로 추가되는 부분은 초록색)" : "VBA 코드 (모듈에 붙여넣기)"}
           text={vba}
+          markFrom={combined?.addedFrom}
           collapsed={collapsed}
-          extra={
-            <>
-              {existingVba !== null ? (
-                <div className="flex overflow-hidden rounded border border-line text-xs" role="group" aria-label="VBA 코드 보기 전환">
-                  <button type="button" className={`px-1.5 py-0.5 ${showFile ? "text-mute hover:bg-mist" : "bg-mist font-semibold"}`} aria-pressed={!showFile} onClick={() => setVbaView("new")}>새 코드</button>
-                  <button type="button" className={`border-l border-line px-1.5 py-0.5 ${showFile ? "bg-mist font-semibold" : "text-mute hover:bg-mist"}`} aria-pressed={showFile} onClick={() => setVbaView("file")}>파일의 기존 코드</button>
-                </div>
-              ) : null}
-              {fold}
-            </>
-          }
+          extra={fold}
         />
       </div>
     </section>
@@ -76,11 +74,13 @@ export function BottomPanel({ collapsed, onToggle, onImport, onExport }: Props) 
 }
 
 function Pane({
-  title, text, highlight, collapsed, extra,
+  title, text, highlight, markFrom, collapsed, extra,
 }: {
   title: string;
   text: string;
   highlight?: string;
+  /** 이 줄부터 끝까지 배경을 칠한다 (새로 추가되는 코드). */
+  markFrom?: number;
   collapsed: boolean;
   extra?: React.ReactNode;
 }) {
@@ -93,7 +93,7 @@ function Pane({
           <CopyButton text={text} />
         </div>
       </div>
-      {collapsed ? null : <CodeBlock text={text} highlight={highlight} />}
+      {collapsed ? null : <CodeBlock text={text} highlight={highlight} markFrom={markFrom} />}
     </div>
   );
 }
@@ -116,12 +116,12 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function CodeBlock({ text, highlight }: { text: string; highlight?: string }) {
+function CodeBlock({ text, highlight, markFrom }: { text: string; highlight?: string; markFrom?: number }) {
   const lines = text.split(/\r?\n/);
   return (
     <pre className="h-52 overflow-auto bg-[#f3f1ec] px-3 pb-3 font-mono text-xs leading-5">
       {lines.map((line, i) => (
-        <div key={i} className={highlight && line.includes(`id="${highlight}"`) ? "bg-mist" : ""}>
+        <div key={i} className={highlight && line.includes(`id="${highlight}"`) ? "bg-mist" : markFrom !== undefined && markFrom >= 0 && i >= markFrom ? "bg-emerald-50" : ""}>
           <span className="mr-3 inline-block w-6 text-right text-mute/70">{i + 1}</span>
           {line || " "}
         </div>
@@ -143,26 +143,21 @@ function selectedXmlId(ribbon: ReturnType<typeof useEditorStore.getState>["ribbo
   return undefined;
 }
 
-/** 불러온 파일의 VBA 모듈을 읽어 한 덩어리 텍스트로 만든다. VBA가 없으면 null. */
-function useExistingVba(bytes: Uint8Array | null): string | null {
-  const [text, setText] = useState<string | null>(null);
+/** 불러온 파일의 VBA 모듈. VBA가 없으면 undefined, 읽지 못했으면 null. */
+function useExistingModules(bytes: Uint8Array | null): VbaModule[] | null | undefined {
+  const [modules, setModules] = useState<VbaModule[] | null | undefined>(undefined);
   useEffect(() => {
     let alive = true;
     if (!bytes) {
-      setText(null);
+      setModules(undefined);
       return;
     }
-    void readVbaModules(bytes).then((modules) => {
-      if (!alive) return;
-      setText(
-        modules.length
-          ? modules.map((m) => `' ===== ${m.name} =====\r\n${m.code}`).join("\r\n\r\n")
-          : "' 이 파일의 VBA 코드를 읽지 못했습니다.\r\n' (암호로 잠긴 프로젝트이거나 형식이 다를 수 있습니다)",
-      );
+    void readVbaModules(bytes).then((list) => {
+      if (alive) setModules(list.length ? list : null);
     });
     return () => {
       alive = false;
     };
   }, [bytes]);
-  return text;
+  return modules;
 }

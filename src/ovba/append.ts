@@ -86,7 +86,7 @@ function setEntry(cfb: CFB.CFB$Container, path: string, bytes: Uint8Array): void
 }
 
 /** 기존 프로젝트에 없는 이름으로 모듈 이름을 정한다 (RibbonCallbacks, RibbonCallbacks2 …). */
-function freeModuleName(taken: Set<string>, base: string): string {
+export function freeModuleName(taken: Set<string>, base: string): string {
   let name = base;
   for (let n = 2; taken.has(name.toLowerCase()); n++) name = `${base}${n}`;
   return name;
