@@ -185,12 +185,14 @@ function CopyText({ text, label }: { text: string; label: string }) {
 }
 
 export function SavedModal({
-  fileName, includeVba, hasCallback, appendedModule, onClose,
+  fileName, includeVba, hasCallback, appendedModule, savedPath, onClose,
 }: {
   fileName: string;
   includeVba: boolean;
   hasCallback: boolean;
   appendedModule?: string;
+  /** 로컬 실행기가 직접 저장한 경로. 있으면 '인터넷에서 받음' 표시가 없다. */
+  savedPath?: string;
   onClose: () => void;
 }) {
   return (
@@ -200,7 +202,25 @@ export function SavedModal({
       {appendedModule ? (
         <p className="mb-2 text-sm">기존 VBA 코드는 그대로 두고, 새 매크로를 <b>{appendedModule}</b> 모듈에 넣었습니다.</p>
       ) : null}
-      {includeVba && /\.xlam$/i.test(fileName) ? (
+      {savedPath ? (
+        <div className="mb-3 rounded border border-pine bg-emerald-50 p-3 text-sm">
+          <p className="font-semibold">이 PC의 로컬 실행기가 바로 저장했습니다 — 차단 해제가 필요 없습니다.</p>
+          <p className="mt-1 break-all text-mute">{savedPath}</p>
+        </div>
+      ) : null}
+      {savedPath && includeVba && /\.xlam$/i.test(fileName) ? (
+        <ol className="list-decimal space-y-1 pl-5 text-sm">
+          <li>엑셀 → <b>개발 도구 → Excel 추가 기능</b>에서 <b>예전 버전의 체크를 해제</b>하고 <b>{fileName}</b>을 체크합니다. (목록에 없으면 <b>찾아보기</b>로 위 경로의 파일을 고릅니다)</li>
+          <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
+          <li>Alt+F11 → <b>{appendedModule ?? "RibbonCallbacks"}</b> 모듈의 TODO 자리에 실제 코드를 채우고, VBA 편집기에서 Ctrl+S로 저장합니다.</li>
+        </ol>
+      ) : savedPath && includeVba ? (
+        <ol className="list-decimal space-y-1 pl-5 text-sm">
+          <li>위 경로의 파일을 엑셀에서 열고, 노란 막대가 나오면 <b>콘텐츠 사용</b>을 누릅니다.</li>
+          <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
+          <li>Alt+F11 → <b>{appendedModule ?? "RibbonCallbacks"}</b> 모듈의 TODO 자리에 실제 코드를 채웁니다.</li>
+        </ol>
+      ) : includeVba && /\.xlam$/i.test(fileName) ? (
         <>
           {/* 추가 기능은 노란 막대가 없어, 차단되거나 이름이 겹치면 조용히 실행되지 않는다. */}
           <div className="mb-3 rounded border border-sand bg-amber-50 p-3 text-sm">
@@ -209,6 +229,7 @@ export function SavedModal({
               <li><b>차단 해제를 하지 않음</b> — 인터넷에서 받은 파일이라 엑셀이 매크로를 조용히 막습니다.</li>
               <li><b>같은 이름의 .xlam이 두 곳에 있음</b> — 다운로드 폴더·바탕화면에 남은 파일과 추가 기능 폴더의 파일이 겹치면 엑셀이 열지 못합니다.</li>
             </ul>
+            <p className="mt-2">차단 해제 없이 쓰려면 Ribbon Builder 폴더의 <b>리본빌더_로컬실행.bat</b>로 열어 저장하세요. 브라우저 다운로드를 거치지 않아 차단 표시가 붙지 않습니다.</p>
           </div>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
             <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인. <span className="text-clay">(꼭 먼저)</span></li>

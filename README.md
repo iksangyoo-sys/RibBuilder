@@ -37,6 +37,18 @@ npm run build
 npm test
 ```
 
+## 로컬 실행기 (매크로 차단 없이 저장)
+
+브라우저로 내려받은 파일에는 Windows가 '인터넷에서 받음' 표시를 붙이고, 엑셀은 그런 .xlam·.xlsm의 매크로를
+조용히 막습니다(github.io에서 받든 로컬 `ribbon-editor.html`에서 받든 같습니다).
+
+`리본빌더_로컬실행.bat`를 더블클릭하면 `ribbon_builder_local.py`가 이 PC(127.0.0.1:8790)에서 Ribbon Builder를 열고,
+**저장하기**를 누르면 브라우저 다운로드 대신 실행기가 파일을 직접 씁니다. 그래서 표시가 붙지 않아 **차단 해제가 필요 없습니다**.
+
+- `.xlam` → 엑셀 추가 기능 폴더(`%APPDATA%\Microsoft\AddIns`), 그 밖 → 다운로드 폴더
+- Python 3 필요(표준 라이브러리만 사용). `ribbon-editor.html`과 같은 폴더에 두세요.
+- 127.0.0.1에서만 열리고, Ribbon Builder 페이지(같은 출처 + 전용 헤더)에서 보낸 엑셀 파일 저장만 받습니다.
+
 ## 구조
 
 - `src/model` — 리본 데이터, id, 복제, 검증
