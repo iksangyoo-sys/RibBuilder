@@ -3,7 +3,7 @@ import { parseCustomUi, type ParseResult } from "@/xml/parse";
 import { parseRelationships, relsPathFor, resolvePath, UI_REL_2006, UI_REL_2007 } from "./rels";
 import { classifyOpenError, RibbonFileError } from "./errors";
 import type { OriginKind, RibbonImage } from "@/model/types";
-import { extractModules, extractPublicSubs, type VbaModule } from "@/ovba/extract";
+import { extractModules, extractPublicSubs, extractSubParams, type VbaModule } from "@/ovba/extract";
 
 export interface OpenedWorkbook {
   bytes: Uint8Array;
@@ -12,6 +12,8 @@ export interface OpenedWorkbook {
   ribbon: ParseResult;
   images: RibbonImage[];
   fileMacros: string[];
+  /** Sub 이름 → 매개변수 (괄호 안). */
+  fileMacroParams: Record<string, string>;
   hasVba: boolean;
   encrypted: boolean;
 }
@@ -110,11 +112,18 @@ export async function openWorkbook(buf: ArrayBuffer | Uint8Array, fileName: stri
   const images = uiPath ? await loadImages(zip, uiPath) : [];
   const vbaFile = Object.keys(zip.files).find((p) => /vbaProject\.bin$/i.test(p));
   let fileMacros: string[] = [];
+  let fileMacroParams: Record<string, string> = {};
   if (vbaFile) {
+    const bin = await zip.file(vbaFile)!.async("uint8array");
     try {
-      fileMacros = extractPublicSubs(await zip.file(vbaFile)!.async("uint8array"));
+      fileMacros = extractPublicSubs(bin);
     } catch {
       fileMacros = [];
+    }
+    try {
+      fileMacroParams = extractSubParams(bin);
+    } catch {
+      fileMacroParams = {};
     }
   }
   return {
@@ -124,6 +133,7 @@ export async function openWorkbook(buf: ArrayBuffer | Uint8Array, fileName: stri
     ribbon,
     images,
     fileMacros,
+    fileMacroParams,
     hasVba: Boolean(vbaFile),
     encrypted: false,
   };

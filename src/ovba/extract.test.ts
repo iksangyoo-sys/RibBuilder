@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as CFB from "cfb";
 import { compressOvba, decompressOvba } from "./compress";
 import { buildVbaProject } from "./embed";
-import { extractModules, extractPublicSubs } from "./extract";
+import { extractModules, extractPublicSubs, extractSubParams } from "./extract";
 
 describe("extractPublicSubs", () => {
   it("한국어 코드 페이지로 저장된 매크로 이름을 그대로 읽는다", () => {
@@ -55,5 +55,21 @@ describe("extractModules", () => {
     expect(callbacks?.code).toContain("Sub btn_실행(control As IRibbonControl)");
     expect(callbacks?.code).toContain("MsgBox \"안녕\"");
     expect(modules.every((m) => !/Attribute\s+VB_/i.test(m.code))).toBe(true);
+  });
+});
+
+describe("extractSubParams", () => {
+  it("Sub마다 괄호 안 매개변수를 읽는다 (줄 연속 포함)", () => {
+    const bin = buildVbaProject(
+      "Sub btn_Send(control As IRibbonControl)\r\nEnd Sub\r\n" +
+      "Sub LoadImage(imageID As String, ByRef image)\r\nEnd Sub\r\n" +
+      "Sub 네이버메일발송()\r\nEnd Sub\r\n" +
+      "Sub dd_Go(control As IRibbonControl, _\r\n    id As String, index As Integer)\r\nEnd Sub\r\n",
+    );
+    const params = extractSubParams(bin);
+    expect(params.btn_Send).toBe("control As IRibbonControl");
+    expect(params.LoadImage).toBe("imageID As String, ByRef image");
+    expect(params["네이버메일발송"]).toBe("");
+    expect(params.dd_Go).toBe("control As IRibbonControl, id As String, index As Integer");
   });
 });

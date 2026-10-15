@@ -174,3 +174,21 @@ export function extractModules(vbaProject: Uint8Array): VbaModule[] {
     }))
     .filter((m) => m.code.trim());
 }
+
+const SUB_PARAMS_RE = /^\s*(?:Public\s+|Private\s+)?(?:Static\s+)?Sub\s+([A-Za-z가-힣_][A-Za-z0-9가-힣_]*)\s*\(([^)]*)\)/gim;
+
+/** Sub 이름 → 괄호 안 매개변수 (줄 연속 " _" 는 한 줄로 합친다). */
+export function extractSubParams(vbaProject: Uint8Array): Record<string, string> {
+  const cfb = CFB.parse(vbaProject);
+  const texts = moduleSources(cfb)?.map((m) => m.code) ?? guessSources(cfb);
+  const out: Record<string, string> = {};
+  for (const raw of texts) {
+    const text = raw.replace(/[ \t]_\r?\n/g, " ");
+    SUB_PARAMS_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SUB_PARAMS_RE.exec(text))) {
+      if (!(m[1] in out)) out[m[1]] = m[2].replace(/\s+/g, " ").trim();
+    }
+  }
+  return out;
+}

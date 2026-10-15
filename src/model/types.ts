@@ -188,6 +188,8 @@ export interface MacroDef {
   body?: string;
   /** 매크로 관리에서 직접 등록한 매크로. 리본에 연결되지 않아도 목록에 남긴다. */
   pinned?: boolean;
+  /** 파일 VBA에서 읽은 매개변수 (괄호 안 그대로). 형식이 맞지 않는 콜백에 고르지 못하게 하는 데 쓴다. */
+  params?: string;
 }
 
 export type OriginKind = "xlsx" | "xlsm" | "xlsb" | "xlam" | "blank";

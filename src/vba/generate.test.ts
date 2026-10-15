@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createControl, createCustomTab, createGroup } from "@/model/factory";
 import { IdIssuer } from "@/model/ids";
-import { generateVba, pruneMacros, signatureClash, signatureConflicts } from "./generate";
+import { generateVba, pruneMacros, signatureClash, signatureConflicts, paramsMismatch } from "./generate";
 import { validateDoc } from "@/model/validate";
 
 describe("generateVba", () => {
@@ -53,7 +53,7 @@ describe("generateVba", () => {
     expect(vba).not.toContain("Sub btn_메일발송");
   });
 
-  it("머리말·MyRibbon·이름순·LoadImage 형식으로 만든다", () => {
+  it("머리말·MyRibbon·이름순 형식으로 만들고, 이미지가 있어도 LoadImage는 넣지 않는다", () => {
     const issuer = new IdIssuer();
     const tab = createCustomTab(issuer, 1);
     const g = createGroup(issuer);
@@ -75,7 +75,7 @@ describe("generateVba", () => {
     expect(vba).toContain(`Sub btn_SendMail(control As IRibbonControl)\r\n    ' TODO: 매크로 코드를 작성하세요\r\n    MsgBox "btn_SendMail 호출됨"\r\nEnd Sub`);
     expect(vba).toContain("    returnedVal = False");
     expect(vba).not.toContain('MsgBox "chk_Init');
-    expect(vba).toContain("Sub LoadImage(imageID As String, ByRef image)");
+    expect(vba).not.toContain("LoadImage");
     expect(generateVba({ tabs: [tab] }, [], { embedded: true })).not.toContain("사용법");
   });
 
@@ -147,5 +147,23 @@ describe("generateVba", () => {
     expect(vba).not.toContain("MyRibbon");
     expect(vba).not.toContain("LoadImage");
     expect(generateVba(doc, [{ name: "btn_OpenChatGPT", source: "file" }, { name: "btn_prompt", source: "file" }], { appendOnly: true })).toBe("");
+  });
+});
+
+describe("paramsMismatch", () => {
+  it("버튼 칸에는 control As IRibbonControl 하나만 받는 Sub만 맞다", () => {
+    expect(paramsMismatch("control As IRibbonControl", "button")).toBeUndefined();
+    expect(paramsMismatch("imageID As String, ByRef image", "button")).toContain("쓸 수 없음");
+    expect(paramsMismatch("", "button")).toContain("매개변수가 없는");
+  });
+  it("드롭다운·토글·입력 칸도 형식을 본다", () => {
+    expect(paramsMismatch("control As IRibbonControl, id As String, index As Integer", "dropdown")).toBeUndefined();
+    expect(paramsMismatch("control As IRibbonControl", "dropdown")).toBeDefined();
+    expect(paramsMismatch("control As IRibbonControl, pressed As Boolean", "pressed")).toBeUndefined();
+    expect(paramsMismatch("control As IRibbonControl, text As String", "pressed")).toBeDefined();
+    expect(paramsMismatch("imageID As String, ByRef image", "getval")).toBeDefined();
+  });
+  it("매개변수를 모르면 막지 않는다", () => {
+    expect(paramsMismatch(undefined, "button")).toBeUndefined();
   });
 });

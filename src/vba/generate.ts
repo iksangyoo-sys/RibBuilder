@@ -118,17 +118,9 @@ export interface GenerateOptions {
   embedded?: boolean;
   /**
    * true면 이미 VBA가 있는 파일에 새 모듈로 더할 코드만 만든다: 파일에 없는 매크로의 Sub만 넣고,
-   * 기존 모듈과 겹칠 수 있는 MyRibbon·RefreshRibbon·LoadImage는 뺀다. 더할 것이 없으면 빈 문자열.
+   * 기존 모듈과 겹칠 수 있는 MyRibbon·RefreshRibbon은 뺀다. 더할 것이 없으면 빈 문자열.
    */
   appendOnly?: boolean;
-}
-
-function usesCustomImage(doc: RibbonDoc): boolean {
-  let found = false;
-  walkControls(doc, (c) => {
-    if (c.imageId) found = true;
-  });
-  return found;
 }
 
 /** 매크로 하나의 본문 (Sub와 End Sub 사이). */
@@ -227,15 +219,6 @@ export function generateVba(doc: RibbonDoc, macros: MacroDef[] = [], options: Ge
     lines.push("End Sub");
     lines.push("");
   }
-  if (usesCustomImage(doc)) {
-    lines.push(`' image="..." 속성을 쓰는 컨트롤의 아이콘 로더`);
-    lines.push(`' imageID는 리본 XML의 image="..." 값과 일치해야 합니다`);
-    lines.push("Sub LoadImage(imageID As String, ByRef image)");
-    lines.push("    ' customUI/images/ 폴더에 저장된 이미지가 자동으로 로드됩니다");
-    lines.push("    ' 이미지가 customUI 패키지에 포함되어 있으면 별도 구현은 필요 없습니다.");
-    lines.push("End Sub");
-    lines.push("");
-  }
   return lines.join("\r\n");
 }
 
@@ -245,3 +228,25 @@ export function panelVba(doc: RibbonDoc, macros: MacroDef[], hasExistingVba: boo
 }
 
 export { SIG };
+
+/**
+ * 파일 VBA에서 읽은 매개변수(괄호 안)가 콜백 칸이 요구하는 형식과 맞지 않으면 그 이유를 돌려준다.
+ * 매개변수를 모르면(직접 등록한 매크로 등) 맞는 것으로 본다.
+ */
+export function paramsMismatch(params: string | undefined, kind: CallbackKind): string | undefined {
+  if (params === undefined) return undefined;
+  const got = params.split(",").map((p) => p.trim()).filter(Boolean);
+  const want = SIG[kind].split(",");
+  if (!got.length) return "매개변수가 없는 일반 매크로라 리본에 바로 연결할 수 없음";
+  const reason = `${KIND_NAME[kind]}용 형식(${SIG[kind]})이 아니라 쓸 수 없음`;
+  if (got.length !== want.length) return reason;
+  const typeOf = (p: string) => /\bAs\s+([A-Za-z_][A-Za-z0-9_.]*)/i.exec(p)?.[1]?.toLowerCase();
+  const first = typeOf(got[0]);
+  if (first && first !== (kind === "onload" ? "iribbonui" : "iribboncontrol")) return reason;
+  if (got.length === 2) {
+    const second = typeOf(got[1]);
+    if (kind === "pressed" && second && second !== "boolean") return reason;
+    if (kind === "text" && second && second !== "string") return reason;
+  }
+  return undefined;
+}
