@@ -1,13 +1,8 @@
-import { CONTROL_NAME } from "@/constants/controls";
 import { KNOWN_IDMSO } from "@/constants/idMso";
 import { isXmlId } from "./ids";
 import { walkControls, walkGroups, walkTabs } from "./walk";
 import { KIND_NAME, collectCallbacks, signatureConflicts } from "@/vba/generate";
 import type { Issue, RibbonDoc } from "./types";
-
-function needsMacro(type: string): boolean {
-  return type === "button" || type === "toggleButton" || type === "checkBox" || type === "editBox" || type === "comboBox" || type === "dropDown";
-}
 
 function macroOf(control: { type: string; onAction?: string; onChange?: string }): string {
   if (control.type === "editBox" || control.type === "comboBox") return control.onChange ?? "";
@@ -69,9 +64,6 @@ export function validateDoc(doc: RibbonDoc, imageIds: Set<string>, macros: { nam
     }
     if (control.type === "splitButton" && !control.button.label.trim()) {
       issues.push({ level: "error", uid: control.button.uid, message: "주 버튼 레이블이 비어 있습니다." });
-    }
-    if (needsMacro(control.type) && !macroOf(control)) {
-      issues.push({ level: "warn", uid: control.uid, message: `${CONTROL_NAME[control.type]} "${control.label || control.id}"에 매크로가 연결되지 않았습니다.` });
     }
     const linked = macroOf(control);
     if (linked) usedMacros.add(linked);
