@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>엑셀 VBA 예제 모음</title>
+
+  <!-- Pretendard (한글 폴백) -->
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+  <style>
+    :root {
+      /* Samsung Blue */
+      --color-primary-100: #B3BFE7;
+      --color-primary-200: #8093D5;
+      --color-primary-300: #4D67C3;
+      --color-primary-400: #2645B0;
+      --color-primary-500: #1428A0;
+      --color-secondary-500: #4FBFB8;
+      --color-success-fg: #2DC07A;
+      --color-warning-fg: #FFB84F;
+      --bg-base: #000000;
+      --bg-elevated: #141418;
+      --bg-code: #0B0B10;
+      --text-primary: #FFFFFF;
+      --text-secondary: rgba(255, 255, 255, 0.78);
+      --text-tertiary: rgba(255, 255, 255, 0.55);
+      --border-default: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.18);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-full: 9999px;
+
+      /* syntax */
+      --syn-kw: #7FA2FF;
+      --syn-str: #F2C27B;
+      --syn-cm: #5E8F6A;
+      --syn-num: #4FBFB8;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(20, 40, 160, 0.25), transparent 60%),
+        var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 20px 64px;
+    }
+
+    /* ── Header ───────────────────────────── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .brand { display: flex; align-items: center; gap: 16px; }
+
+    .logo-stack { position: relative; width: 58px; height: 40px; flex: none; }
+
+    .logo-stack .c {
+      position: absolute;
+      bottom: 0;
+      width: 42px;
+      height: 27px;
+      border-radius: 6px;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+    }
+
+    .logo-stack .c1 { left: 0; transform: rotate(-12deg); background: linear-gradient(135deg, #3A3A40, #0A0A0F); opacity: .6; }
+    .logo-stack .c2 { left: 8px; background: linear-gradient(135deg, #5C636E, #1A1A20); opacity: .8; }
+    .logo-stack .c3 { left: 16px; transform: rotate(12deg); background: linear-gradient(135deg, #0F1E78, #1428A0); box-shadow: 0 8px 18px rgba(20, 40, 160, .5); }
+
+    .title h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+    .title .sub { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; letter-spacing: .02em; }
+
+    .topbar .spacer { flex: 1; }
+
+    .period {
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-full);
+      padding: 7px 14px;
+      white-space: nowrap;
+    }
+
+    .period b { color: #fff; font-weight: 600; }
+
+    /* ── TOC ──────────────────────────────── */
+    .toc {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      background: rgba(20, 20, 24, .92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 10px 12px;
+      margin-bottom: 22px;
+      scrollbar-width: none;
+    }
+
+    .toc::-webkit-scrollbar { display: none; }
+
+    .toc a {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border: 1px solid var(--border-default);
+      background: rgba(255, 255, 255, .04);
+      border-radius: var(--radius-full);
+      padding: 7px 13px;
+      transition: .2s;
+      white-space: nowrap;
+    }
+
+    .toc a b { color: var(--color-primary-200); font-variant-numeric: tabular-nums; }
+    .toc a:hover, .toc a.on { color: #fff; border-color: var(--color-primary-400); background: rgba(20, 40, 160, .22); }
+
+    /* ── Example card ─────────────────────── */
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--color-primary-500);
+    }
+
+    .ex-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+
+    .ex-head .num {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      color: #fff;
+      background: var(--color-primary-500);
+      border-radius: var(--radius-full);
+      padding: 5px 11px;
+    }
+
+    .ex-head h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+
+    .ex-head .tag {
+      font-size: 11px;
+      color: var(--color-warning-fg);
+      background: rgba(255, 184, 79, .12);
+      border-radius: var(--radius-full);
+      padding: 4px 10px;
+    }
+
+    .block { border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+    .block + .block { margin-top: 14px; }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #16161c;
+      border-bottom: 1px solid var(--border-default);
+      padding: 8px 10px 8px 14px;
+    }
+
+    .lbl { font-size: 10px; font-weight: 700; letter-spacing: .08em; border-radius: 4px; padding: 3px 7px; }
+    .lbl.p { color: var(--color-secondary-500); background: rgba(79, 191, 184, .14); }
+    .lbl.c { color: var(--syn-kw); background: rgba(127, 162, 255, .14); }
+
+    .meta { font-size: 11.5px; color: var(--text-tertiary); flex: 1; }
+
+    .copy {
+      font: 600 11.5px/1 'Pretendard', sans-serif;
+      border: 1px solid var(--border-strong);
+      background: rgba(255, 255, 255, .06);
+      color: #fff;
+      border-radius: var(--radius-full);
+      padding: 7px 13px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    .copy:hover { background: rgba(255, 255, 255, .14); }
+    .copy.done { border-color: var(--color-success-fg); color: var(--color-success-fg); }
+
+    pre { margin: 0; }
+
+    .prompt {
+      font: 400 13px/1.7 'Pretendard', sans-serif;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, .02);
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    /* 코드: 길면 세로 스크롤바 */
+    .code {
+      background: var(--bg-code);
+      max-height: 460px;
+      overflow: auto;
+      padding: 12px 0;
+      font: 400 12.5px/1.65 'D2Coding', 'Consolas', 'Menlo', 'Pretendard', monospace;
+      counter-reset: ln;
+      tab-size: 4;
+    }
+
+    .code code { display: inline-block; min-width: 100%; }
+
+    .code .ln { display: block; white-space: pre; padding: 0 18px 0 0; color: #E4E6EE; }
+
+    .code .ln::before {
+      counter-increment: ln;
+      content: counter(ln);
+      display: inline-block;
+      width: 3.2em;
+      padding-right: 1.1em;
+      margin-right: 1em;
+      text-align: right;
+      color: rgba(255, 255, 255, .25);
+      border-right: 1px solid var(--border-default);
+      user-select: none;
+    }
+
+    .code .ln:hover { background: rgba(255, 255, 255, .03); }
+
+    .k { color: var(--syn-kw); }
+    .s { color: var(--syn-str); }
+    .cm { color: var(--syn-cm); font-style: italic; }
+    .n { color: var(--syn-num); }
+
+    /* 스크롤바 */
+    .code::-webkit-scrollbar, .prompt::-webkit-scrollbar { width: 10px; height: 10px; }
+    .code::-webkit-scrollbar-track, .prompt::-webkit-scrollbar-track { background: transparent; }
+    .code::-webkit-scrollbar-thumb, .prompt::-webkit-scrollbar-thumb {
+      background: rgba(77, 103, 195, .55);
+      border-radius: 10px;
+      border: 2px solid var(--bg-code);
+    }
+    .code::-webkit-scrollbar-thumb:hover { background: var(--color-primary-300); }
+    .code::-webkit-scrollbar-corner { background: transparent; }
+    .code, .prompt { scrollbar-color: rgba(77, 103, 195, .55) transparent; }
+
+    .foot { text-align: center; font-size: 11.5px; color: var(--text-tertiary); margin-top: 30px; }
+
+    @media(max-width:680px) {
+      .wrap { padding: 18px 16px 48px; }
+      .title h1 { font-size: 18px; }
+      .card { padding: 16px; }
+      .ex-head h2 { font-size: 16px; }
+      .code { max-height: 380px; font-size: 12px; }
+      .code .ln::before { width: 2.6em; padding-right: .8em; margin-right: .7em; }
+    }
+
+    @media(prefers-reduced-motion:reduce) {
+      html { scroll-behavior: auto; }
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <!-- Header -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-stack">
+          <div class="c c1"></div>
+          <div class="c c2"></div>
+          <div class="c c3"></div>
+        </div>
+        <div class="title">
+          <h1>엑셀 VBA 예제 모음</h1>
+          <div class="sub">ChatGPT 프롬프트 &amp; VBA 코드 · 리본 버튼 자동화 실습</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <span class="period">총 <b>5</b>개 예제</span>
+    </header>
+
+    <!-- TOC -->
+    <nav class="toc" id="toc">
+        <a href="#ex1"><b>01</b>ChatGPT 이동 버튼</a>
+        <a href="#ex2"><b>02</b>폴더 내 파일 취합 자동화 버튼 만들기</a>
+        <a href="#ex3"><b>03</b>웹사이트</a>
+        <a href="#ex4"><b>04</b>폴더 바로가기</a>
+        <a href="#ex5"><b>05</b>이메일발송하기</a>
+    </nav>
+
+      <section class="card ex" id="ex1">
+        <div class="ex-head">
+          <span class="num">예제 01</span>
+          <h2>ChatGPT 이동 버튼</h2>
+          
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl p">PROMPT</span><span class="meta">프롬프트</span><button class="copy" data-t="p1">복사</button></div>
+          <pre class="prompt" id="p1">엑셀 vba로 인터넷 브라우저를 실행한 다음, chatgpt.com으로 접속하는 코드를 작성해 주세요</pre>
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl c">VBA</span><span class="meta">4줄</span><button class="copy" data-t="c1">복사</button></div>
+          <pre class="code" id="c1"><code><span class="ln">Sub OpenChatGPT()</span><span class="ln">    &#x27; 기본 인터넷 브라우저로 ChatGPT 실행</span><span class="ln">    ThisWorkbook.FollowHyperlink Address:=&quot;https://chatgpt.com&quot;</span><span class="ln">End Sub</span></code></pre>
+        </div>
+      </section>
+      <section class="card ex" id="ex2">
+        <div class="ex-head">
+          <span class="num">예제 02</span>
+          <h2>폴더 내 파일 취합 자동화 버튼 만들기</h2>
+          
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl p">PROMPT</span><span class="meta">프롬프트</span><button class="copy" data-t="p2">복사</button></div>
+          <pre class="prompt" id="p2">&quot;폴더를 선택하면 폴더 안에 파일을 취합하는 엑셀 VBA 코드를 작성하려고 합니다.
+추가로 제가 무엇을 알려드려야 하나요?
+저는 완전 입문자입니다. 반드시 검토가 필요한 항목만 표로 알기 쉽게 정리하세요.
+나머지 중요하지 않은 항목은 일반적인 설정(기본값)으로 처리해도 괜찮습니다. 중요하지 않은 항목은 표 아래에 간단하게만 정리하세요.
+편리하게 복사/붙여넣기로 답변할 수 있도록 예시 답변도 작성해주세요.
+검토 후 코드 작성을 시작합시다.&quot;</pre>
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl c">VBA</span><span class="meta">261줄</span><button class="copy" data-t="c2">복사</button></div>
+          <pre class="code" id="c2"><code><span class="ln">Option Explicit</span><span class="ln"> </span><span class="ln">Sub 폴더내엑셀파일취합()</span><span class="ln"> </span><span class="ln">    Dim folderPath As String</span><span class="ln">    Dim fileName As String</span><span class="ln">    Dim sourceWB As Workbook</span><span class="ln">    Dim sourceWS As Worksheet</span><span class="ln">    Dim resultWB As Workbook</span><span class="ln">    Dim resultWS As Worksheet</span><span class="ln">    Dim lastRow As Long</span><span class="ln">    Dim lastCol As Long</span><span class="ln">    Dim nextRow As Long</span><span class="ln">    Dim startRow As Long</span><span class="ln">    Dim firstFile As Boolean</span><span class="ln">    Dim savePath As Variant</span><span class="ln">    Dim dataRange As Range</span><span class="ln"> </span><span class="ln">    On Error GoTo ErrorHandler</span><span class="ln"> </span><span class="ln">    &#x27; 1. 취합할 폴더 선택</span><span class="ln">    With Application.FileDialog(msoFileDialogFolderPicker)</span><span class="ln">        .Title = &quot;취합할 엑셀 파일이 있는 폴더를 선택하세요&quot;</span><span class="ln"> </span><span class="ln">        If .Show &lt;&gt; -1 Then</span><span class="ln">            MsgBox &quot;폴더 선택이 취소되었습니다.&quot;</span><span class="ln">            Exit Sub</span><span class="ln">        End If</span><span class="ln"> </span><span class="ln">        folderPath = .SelectedItems(1) &amp; &quot;\&quot;</span><span class="ln">    End With</span><span class="ln"> </span><span class="ln">    &#x27; 2. 엑셀 실행 속도 개선</span><span class="ln">    Application.ScreenUpdating = False</span><span class="ln">    Application.DisplayAlerts = False</span><span class="ln"> </span><span class="ln">    &#x27; 3. 결과를 저장할 새 엑셀 파일 생성</span><span class="ln">    Set resultWB = Workbooks.Add(xlWBATWorksheet)</span><span class="ln">    Set resultWS = resultWB.Worksheets(1)</span><span class="ln">    resultWS.Name = &quot;취합결과&quot;</span><span class="ln"> </span><span class="ln">    nextRow = 1</span><span class="ln">    firstFile = True</span><span class="ln"> </span><span class="ln">    &#x27; 4. xlsx 파일부터 검색</span><span class="ln">    fileName = Dir(folderPath &amp; &quot;*.xlsx&quot;)</span><span class="ln"> </span><span class="ln">    Do While fileName &lt;&gt; &quot;&quot;</span><span class="ln"> </span><span class="ln">        &#x27; 현재 취합 중인 파일은 제외</span><span class="ln">        If Left(fileName, 2) &lt;&gt; &quot;~$&quot; Then</span><span class="ln"> </span><span class="ln">            Set sourceWB = Workbooks.Open( _</span><span class="ln">                Filename:=folderPath &amp; fileName, _</span><span class="ln">                ReadOnly:=True, UpdateLinks:=0)</span><span class="ln"> </span><span class="ln">            Set sourceWS = sourceWB.Worksheets(1)</span><span class="ln"> </span><span class="ln">            &#x27; 데이터가 있는 마지막 행과 열 확인</span><span class="ln">            Set dataRange = sourceWS.Cells.Find( _</span><span class="ln">                What:=&quot;*&quot;, LookIn:=xlFormulas, _</span><span class="ln">                SearchOrder:=xlByRows, SearchDirection:=xlPrevious)</span><span class="ln"> </span><span class="ln">            If Not dataRange Is Nothing Then</span><span class="ln"> </span><span class="ln">                lastRow = dataRange.Row</span><span class="ln"> </span><span class="ln">                Set dataRange = sourceWS.Cells.Find( _</span><span class="ln">                    What:=&quot;*&quot;, LookIn:=xlFormulas, _</span><span class="ln">                    SearchOrder:=xlByColumns, SearchDirection:=xlPrevious)</span><span class="ln"> </span><span class="ln">                lastCol = dataRange.Column</span><span class="ln"> </span><span class="ln">                &#x27; 첫 번째 파일은 제목 행 포함</span><span class="ln">                If firstFile Then</span><span class="ln">                    startRow = 1</span><span class="ln">                Else</span><span class="ln">                    &#x27; 두 번째 파일부터 제목 행 제외</span><span class="ln">                    startRow = 2</span><span class="ln">                End If</span><span class="ln"> </span><span class="ln">                If lastRow &gt;= startRow Then</span><span class="ln"> </span><span class="ln">                    sourceWS.Range( _</span><span class="ln">                        sourceWS.Cells(startRow, 1), _</span><span class="ln">                        sourceWS.Cells(lastRow, lastCol)).Copy</span><span class="ln"> </span><span class="ln">                    resultWS.Cells(nextRow, 1).PasteSpecial _</span><span class="ln">                        Paste:=xlPasteValues</span><span class="ln"> </span><span class="ln">                    nextRow = nextRow + lastRow - startRow + 1</span><span class="ln">                    firstFile = False</span><span class="ln"> </span><span class="ln">                End If</span><span class="ln"> </span><span class="ln">            End If</span><span class="ln"> </span><span class="ln">            sourceWB.Close SaveChanges:=False</span><span class="ln">            Set dataRange = Nothing</span><span class="ln"> </span><span class="ln">        End If</span><span class="ln"> </span><span class="ln">        fileName = Dir()</span><span class="ln"> </span><span class="ln">    Loop</span><span class="ln"> </span><span class="ln">    &#x27; 5. xls 파일 취합</span><span class="ln">    fileName = Dir(folderPath &amp; &quot;*.xls&quot;)</span><span class="ln"> </span><span class="ln">    Do While fileName &lt;&gt; &quot;&quot;</span><span class="ln"> </span><span class="ln">        If Left(fileName, 2) &lt;&gt; &quot;~$&quot; Then</span><span class="ln"> </span><span class="ln">            Set sourceWB = Workbooks.Open( _</span><span class="ln">                Filename:=folderPath &amp; fileName, _</span><span class="ln">                ReadOnly:=True, UpdateLinks:=0)</span><span class="ln"> </span><span class="ln">            Set sourceWS = sourceWB.Worksheets(1)</span><span class="ln"> </span><span class="ln">            Set dataRange = sourceWS.Cells.Find( _</span><span class="ln">                What:=&quot;*&quot;, LookIn:=xlFormulas, _</span><span class="ln">                SearchOrder:=xlByRows, SearchDirection:=xlPrevious)</span><span class="ln"> </span><span class="ln">            If Not dataRange Is Nothing Then</span><span class="ln"> </span><span class="ln">                lastRow = dataRange.Row</span><span class="ln"> </span><span class="ln">                Set dataRange = sourceWS.Cells.Find( _</span><span class="ln">                    What:=&quot;*&quot;, LookIn:=xlFormulas, _</span><span class="ln">                    SearchOrder:=xlByColumns, SearchDirection:=xlPrevious)</span><span class="ln"> </span><span class="ln">                lastCol = dataRange.Column</span><span class="ln"> </span><span class="ln">                If firstFile Then</span><span class="ln">                    startRow = 1</span><span class="ln">                Else</span><span class="ln">                    startRow = 2</span><span class="ln">                End If</span><span class="ln"> </span><span class="ln">                If lastRow &gt;= startRow Then</span><span class="ln"> </span><span class="ln">                    sourceWS.Range( _</span><span class="ln">                        sourceWS.Cells(startRow, 1), _</span><span class="ln">                        sourceWS.Cells(lastRow, lastCol)).Copy</span><span class="ln"> </span><span class="ln">                    resultWS.Cells(nextRow, 1).PasteSpecial _</span><span class="ln">                        Paste:=xlPasteValues</span><span class="ln"> </span><span class="ln">                    nextRow = nextRow + lastRow - startRow + 1</span><span class="ln">                    firstFile = False</span><span class="ln"> </span><span class="ln">                End If</span><span class="ln"> </span><span class="ln">            End If</span><span class="ln"> </span><span class="ln">            sourceWB.Close SaveChanges:=False</span><span class="ln">            Set dataRange = Nothing</span><span class="ln"> </span><span class="ln">        End If</span><span class="ln"> </span><span class="ln">        fileName = Dir()</span><span class="ln"> </span><span class="ln">    Loop</span><span class="ln"> </span><span class="ln">    &#x27; 6. xlsm 파일 취합</span><span class="ln">    fileName = Dir(folderPath &amp; &quot;*.xlsm&quot;)</span><span class="ln"> </span><span class="ln">    Do While fileName &lt;&gt; &quot;&quot;</span><span class="ln"> </span><span class="ln">        If Left(fileName, 2) &lt;&gt; &quot;~$&quot; Then</span><span class="ln"> </span><span class="ln">            Set sourceWB = Workbooks.Open( _</span><span class="ln">                Filename:=folderPath &amp; fileName, _</span><span class="ln">                ReadOnly:=True, UpdateLinks:=0)</span><span class="ln"> </span><span class="ln">            Set sourceWS = sourceWB.Worksheets(1)</span><span class="ln"> </span><span class="ln">            Set dataRange = sourceWS.Cells.Find( _</span><span class="ln">                What:=&quot;*&quot;, LookIn:=xlFormulas, _</span><span class="ln">                SearchOrder:=xlByRows, SearchDirection:=xlPrevious)</span><span class="ln"> </span><span class="ln">            If Not dataRange Is Nothing Then</span><span class="ln"> </span><span class="ln">                lastRow = dataRange.Row</span><span class="ln"> </span><span class="ln">                Set dataRange = sourceWS.Cells.Find( _</span><span class="ln">                    What:=&quot;*&quot;, LookIn:=xlFormulas, _</span><span class="ln">                    SearchOrder:=xlByColumns, SearchDirection:=xlPrevious)</span><span class="ln"> </span><span class="ln">                lastCol = dataRange.Column</span><span class="ln"> </span><span class="ln">                If firstFile Then</span><span class="ln">                    startRow = 1</span><span class="ln">                Else</span><span class="ln">                    startRow = 2</span><span class="ln">                End If</span><span class="ln"> </span><span class="ln">                If lastRow &gt;= startRow Then</span><span class="ln"> </span><span class="ln">                    sourceWS.Range( _</span><span class="ln">                        sourceWS.Cells(startRow, 1), _</span><span class="ln">                        sourceWS.Cells(lastRow, lastCol)).Copy</span><span class="ln"> </span><span class="ln">                    resultWS.Cells(nextRow, 1).PasteSpecial _</span><span class="ln">                        Paste:=xlPasteValues</span><span class="ln"> </span><span class="ln">                    nextRow = nextRow + lastRow - startRow + 1</span><span class="ln">                    firstFile = False</span><span class="ln"> </span><span class="ln">                End If</span><span class="ln"> </span><span class="ln">            End If</span><span class="ln"> </span><span class="ln">            sourceWB.Close SaveChanges:=False</span><span class="ln">            Set dataRange = Nothing</span><span class="ln"> </span><span class="ln">        End If</span><span class="ln"> </span><span class="ln">        fileName = Dir()</span><span class="ln"> </span><span class="ln">    Loop</span><span class="ln"> </span><span class="ln">    Application.CutCopyMode = False</span><span class="ln"> </span><span class="ln">    &#x27; 7. 결과 저장 위치 선택</span><span class="ln">    savePath = Application.GetSaveAsFilename( _</span><span class="ln">        InitialFileName:=&quot;엑셀취합결과.xlsx&quot;, _</span><span class="ln">        FileFilter:=&quot;Excel 통합 문서 (*.xlsx), *.xlsx&quot;)</span><span class="ln"> </span><span class="ln">    If savePath &lt;&gt; False Then</span><span class="ln"> </span><span class="ln">        resultWB.SaveAs Filename:=savePath, _</span><span class="ln">            FileFormat:=xlOpenXMLWorkbook</span><span class="ln"> </span><span class="ln">        MsgBox &quot;파일 취합이 완료되었습니다.&quot; &amp; vbCrLf &amp; _</span><span class="ln">               &quot;저장 위치: &quot; &amp; savePath, vbInformation</span><span class="ln"> </span><span class="ln">    Else</span><span class="ln"> </span><span class="ln">        MsgBox &quot;저장이 취소되었습니다. 취합 결과는 열린 상태입니다.&quot;, _</span><span class="ln">               vbInformation</span><span class="ln"> </span><span class="ln">    End If</span><span class="ln"> </span><span class="ln">CleanExit:</span><span class="ln">    Application.CutCopyMode = False</span><span class="ln">    Application.DisplayAlerts = True</span><span class="ln">    Application.ScreenUpdating = True</span><span class="ln">    Exit Sub</span><span class="ln"> </span><span class="ln">ErrorHandler:</span><span class="ln">    MsgBox &quot;오류가 발생했습니다.&quot; &amp; vbCrLf &amp; _</span><span class="ln">           &quot;오류 내용: &quot; &amp; Err.Description, vbExclamation</span><span class="ln"> </span><span class="ln">    On Error Resume Next</span><span class="ln">    If Not sourceWB Is Nothing Then sourceWB.Close SaveChanges:=False</span><span class="ln">    On Error GoTo 0</span><span class="ln"> </span><span class="ln">    Resume CleanExit</span><span class="ln"> </span><span class="ln">End Sub</span></code></pre>
+        </div>
+      </section>
+      <section class="card ex" id="ex3">
+        <div class="ex-head">
+          <span class="num">예제 03</span>
+          <h2>웹사이트</h2>
+          
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl p">PROMPT</span><span class="meta">프롬프트</span><button class="copy" data-t="p3">복사</button></div>
+          <pre class="prompt" id="p3">Sub dd_Website(control As IRibbonControl, id As String, index As Integer)
+&#x27; TODO: 선택된 항목 처리 (id / index)
+End Sub
+
+--
+이 드룹다운 버튼을 클릭했을 때, id에 따라서 특정 웹사이트로 이동하도록 vba코드를 작성하세요.
+- youtube : youtube.com
+- google : google.com
+- prompt : iksangyoo-sys.github.io/yes_prom/</pre>
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl c">VBA</span><span class="meta">21줄</span><button class="copy" data-t="c3">복사</button></div>
+          <pre class="code" id="c3"><code><span class="ln">Sub dd_Website(control As IRibbonControl, id As String, index As Integer)</span><span class="ln">    Dim url As String</span><span class="ln"> </span><span class="ln">    &#x27; 선택한 항목의 id에 따라 이동할 주소 결정</span><span class="ln">    Select Case LCase(Trim(id))</span><span class="ln">        Case &quot;youtube&quot;:            url = &quot;https://www.youtube.com&quot;</span><span class="ln">        Case &quot;google&quot;:             url = &quot;https://www.google.com&quot;</span><span class="ln">        Case &quot;prompt&quot;, &quot;ptompt&quot;:   url = &quot;https://iksangyoo-sys.github.io/yes_prom/&quot;</span><span class="ln">        Case Else</span><span class="ln">            MsgBox &quot;알 수 없는 항목입니다: &quot; &amp; id, vbExclamation</span><span class="ln">            Exit Sub</span><span class="ln">    End Select</span><span class="ln"> </span><span class="ln">    &#x27; 기본 웹브라우저로 열기</span><span class="ln">    On Error GoTo ErrHandler</span><span class="ln">    ThisWorkbook.FollowHyperlink Address:=url, NewWindow:=True</span><span class="ln">    Exit Sub</span><span class="ln"> </span><span class="ln">ErrHandler:</span><span class="ln">    MsgBox &quot;웹사이트를 열 수 없습니다.&quot; &amp; vbCrLf &amp; url, vbCritical</span><span class="ln">End Sub</span></code></pre>
+        </div>
+      </section>
+      <section class="card ex" id="ex4">
+        <div class="ex-head">
+          <span class="num">예제 04</span>
+          <h2>폴더 바로가기</h2>
+          
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl p">PROMPT</span><span class="meta">프롬프트</span><button class="copy" data-t="p4">복사</button></div>
+          <pre class="prompt" id="p4">Sub dd_GoFolder(control As IRibbonControl, id As String, index As Integer)
+    &#x27; TODO: 선택된 항목 처리 (id / index)
+End Sub
+--
+이 드룹다운 버튼을 클릭했을 때, id에 따라서 특정 폴더로 이동하도록 vba코드를 작성하세요.
+- desktop : 바탕화면
+- download : 다운로드폴더</pre>
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl c">VBA</span><span class="meta">25줄</span><button class="copy" data-t="c4">복사</button></div>
+          <pre class="code" id="c4"><code><span class="ln">Sub dd_GoFolder(control As IRibbonControl, id As String, index As Integer)</span><span class="ln">    Dim folderPath As String</span><span class="ln"> </span><span class="ln">    &#x27; 선택한 항목의 id에 따라 열 폴더 결정</span><span class="ln">    Select Case LCase(Trim(id))</span><span class="ln">        Case &quot;desktop&quot;</span><span class="ln">            &#x27; 바탕화면 (OneDrive로 옮겨진 경우도 자동으로 찾음)</span><span class="ln">            folderPath = CreateObject(&quot;WScript.Shell&quot;).SpecialFolders(&quot;Desktop&quot;)</span><span class="ln">        Case &quot;download&quot;</span><span class="ln">            &#x27; 다운로드 폴더</span><span class="ln">            folderPath = Environ(&quot;USERPROFILE&quot;) &amp; &quot;\Downloads&quot;</span><span class="ln">            If Dir(folderPath, vbDirectory) = &quot;&quot; Then folderPath = &quot;shell:Downloads&quot;</span><span class="ln">        Case Else</span><span class="ln">            MsgBox &quot;알 수 없는 항목입니다: &quot; &amp; id, vbExclamation</span><span class="ln">            Exit Sub</span><span class="ln">    End Select</span><span class="ln"> </span><span class="ln">    &#x27; 파일 탐색기로 폴더 열기</span><span class="ln">    On Error GoTo ErrHandler</span><span class="ln">    Shell &quot;explorer.exe &quot;&quot;&quot; &amp; folderPath &amp; &quot;&quot;&quot;&quot;, vbNormalFocus</span><span class="ln">    Exit Sub</span><span class="ln"> </span><span class="ln">ErrHandler:</span><span class="ln">    MsgBox &quot;폴더를 열 수 없습니다.&quot; &amp; vbCrLf &amp; folderPath, vbCritical</span><span class="ln">End Sub</span></code></pre>
+        </div>
+      </section>
+      <section class="card ex" id="ex5">
+        <div class="ex-head">
+          <span class="num">예제 05</span>
+          <h2>이메일발송하기</h2>
+          <span class="tag">네이버 환경설정 → POP3/IMAP 설정</span>
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl p">PROMPT</span><span class="meta">프롬프트</span><button class="copy" data-t="p5">복사</button></div>
+          <pre class="prompt" id="p5">현재 시트에는 메일 발송에 필요한 데이터가 작성되어 있습니다.
+A열: 이메일 주소, B열: 메일 제목, C열: 메일 내용
+네이버 SMTP를 사용해서 메일을 발송하려고 합니다.
+***환경변수는 다음과 같습니다.
+계정 정보
+아이디 : yessoee
+비밀번호 : 애플리케이션 비밀번호
+서버 명
+POP 서버명 : pop.naver.com
+SMTP 서버명 : smtp.naver.com
+포트 정보
+POP 포트 : 995, 보안연결(SSL) 필요
+SMTP 포트 : 465, 보안 연결(SSL) 필요
+
+***2단계 인증 비밀번호: ************ (본인 앱 비밀번호)
+___
+추가로 제가 무엇을 알려드려야 하나요?
+저는 완전 입문자입니다. 반드시 검토가 필요한 항목만 표로 알기 쉽게 정리하세요.
+나머지 중요하지 않은 항목은 일반적인 설정(기본값)으로 처리해도 괜찮습니다. 
+중요하지 않은 항목은 표 아래에 간단하게만 정리하세요.
+편리하게 복사/붙여넣기로 답변할 수 있도록 예시 답변도 작성해주세요.
+검토 후 코드 작성을 시작합시다.&quot;</pre>
+        </div>
+        <div class="block">
+          <div class="bar"><span class="lbl c">VBA</span><span class="meta">107줄</span><button class="copy" data-t="c5">복사</button></div>
+          <pre class="code" id="c5"><code><span class="ln">Option Explicit</span><span class="ln"> </span><span class="ln">&#x27;========= 여기만 수정하세요! =============</span><span class="ln">Const SMTP_USER As String = &quot;yessoee&quot;                    &#x27; 네이버 아이디</span><span class="ln">Const SMTP_PASS As String = &quot;여기에_애플리케이션_비밀번호&quot;   &#x27; 네이버 2단계 인증 애플리케이션 비밀번호</span><span class="ln">Const FROM_ADDR As String = &quot;yessoee@naver.com&quot;          &#x27; 보내는 사람 주소 (로그인 계정과 같아야 함)</span><span class="ln">Const FROM_NAME As String = &quot;유익상&quot;                      &#x27; 보내는 사람 표시 이름</span><span class="ln">Const START_ROW As Long = 2                              &#x27; 데이터 시작 행 (1행은 제목줄)</span><span class="ln">Const WAIT_SEC As Long = 2                               &#x27; 발송 간격(초)</span><span class="ln">&#x27;======================================</span><span class="ln"> </span><span class="ln">Sub 네이버메일발송()</span><span class="ln">    Dim ws As Worksheet: Set ws = ActiveSheet</span><span class="ln">    Dim lastRow As Long, r As Long</span><span class="ln">    Dim toAddr As String, subj As String, body As String</span><span class="ln">    Dim total As Long, okCnt As Long, failCnt As Long, skipCnt As Long</span><span class="ln"> </span><span class="ln">    lastRow = ws.Cells(ws.Rows.Count, &quot;A&quot;).End(xlUp).Row</span><span class="ln">    If lastRow &lt; START_ROW Then</span><span class="ln">        MsgBox &quot;보낼 데이터가 없습니다.&quot;, vbExclamation</span><span class="ln">        Exit Sub</span><span class="ln">    End If</span><span class="ln"> </span><span class="ln">    &#x27; 보낼 건수 세기 (이메일이 있고, 아직 성공하지 않은 행)</span><span class="ln">    For r = START_ROW To lastRow</span><span class="ln">        If Trim(ws.Cells(r, &quot;A&quot;).Value) &lt;&gt; &quot;&quot; And Left(ws.Cells(r, &quot;D&quot;).Value, 2) &lt;&gt; &quot;성공&quot; Then total = total + 1</span><span class="ln">    Next r</span><span class="ln">    If total = 0 Then</span><span class="ln">        MsgBox &quot;새로 보낼 메일이 없습니다. (모두 발송 완료)&quot;, vbInformation</span><span class="ln">        Exit Sub</span><span class="ln">    End If</span><span class="ln">    If MsgBox(&quot;총 &quot; &amp; total &amp; &quot;건을 발송합니다. 진행할까요?&quot;, vbYesNo + vbQuestion) &lt;&gt; vbYes Then Exit Sub</span><span class="ln"> </span><span class="ln">    If ws.Range(&quot;D1&quot;).Value = &quot;&quot; Then ws.Range(&quot;D1&quot;).Value = &quot;발송결과&quot;</span><span class="ln">    Application.Cursor = xlWait</span><span class="ln"> </span><span class="ln">    For r = START_ROW To lastRow</span><span class="ln">        toAddr = Trim(ws.Cells(r, &quot;A&quot;).Value)</span><span class="ln">        subj = CStr(ws.Cells(r, &quot;B&quot;).Value)</span><span class="ln">        body = Replace(CStr(ws.Cells(r, &quot;C&quot;).Value), vbLf, vbCrLf)   &#x27; 셀 줄바꿈 유지</span><span class="ln"> </span><span class="ln">        If toAddr = &quot;&quot; Then</span><span class="ln">            &#x27; 빈 행은 건너뜀</span><span class="ln">        ElseIf Left(ws.Cells(r, &quot;D&quot;).Value, 2) = &quot;성공&quot; Then</span><span class="ln">            skipCnt = skipCnt + 1</span><span class="ln">        ElseIf Not toAddr Like &quot;?*@?*.?*&quot; Then</span><span class="ln">            ws.Cells(r, &quot;D&quot;).Value = &quot;실패 &quot; &amp; Format(Now, &quot;yyyy-mm-dd hh:nn:ss&quot;) &amp; &quot; (이메일 형식 오류)&quot;</span><span class="ln">            failCnt = failCnt + 1</span><span class="ln">        Else</span><span class="ln">            Application.StatusBar = &quot;메일 발송 중... &quot; &amp; (okCnt + failCnt + 1) &amp; &quot; / &quot; &amp; total &amp; &quot;  &quot; &amp; toAddr</span><span class="ln">            Dim errMsg As String</span><span class="ln">            errMsg = SendNaverMail(toAddr, subj, body)</span><span class="ln">            If errMsg = &quot;&quot; Then</span><span class="ln">                ws.Cells(r, &quot;D&quot;).Value = &quot;성공 &quot; &amp; Format(Now, &quot;yyyy-mm-dd hh:nn:ss&quot;)</span><span class="ln">                okCnt = okCnt + 1</span><span class="ln">            Else</span><span class="ln">                ws.Cells(r, &quot;D&quot;).Value = &quot;실패 &quot; &amp; Format(Now, &quot;yyyy-mm-dd hh:nn:ss&quot;) &amp; &quot; (&quot; &amp; errMsg &amp; &quot;)&quot;</span><span class="ln">                failCnt = failCnt + 1</span><span class="ln">            End If</span><span class="ln">            DoEvents</span><span class="ln">            Application.Wait Now + TimeSerial(0, 0, WAIT_SEC)   &#x27; 스팸 차단 방지용 간격</span><span class="ln">        End If</span><span class="ln">    Next r</span><span class="ln"> </span><span class="ln">    Application.StatusBar = False</span><span class="ln">    Application.Cursor = xlDefault</span><span class="ln">    MsgBox &quot;발송 완료&quot; &amp; vbCrLf &amp; _</span><span class="ln">           &quot;성공: &quot; &amp; okCnt &amp; &quot;건&quot; &amp; vbCrLf &amp; _</span><span class="ln">           &quot;실패: &quot; &amp; failCnt &amp; &quot;건&quot; &amp; vbCrLf &amp; _</span><span class="ln">           &quot;건너뜀(이미 성공): &quot; &amp; skipCnt &amp; &quot;건&quot;, vbInformation</span><span class="ln">End Sub</span><span class="ln"> </span><span class="ln">&#x27; 메일 1건 발송. 성공하면 &quot;&quot; , 실패하면 오류 내용을 돌려줌</span><span class="ln">Private Function SendNaverMail(toAddr As String, subj As String, body As String) As String</span><span class="ln">    Const CFG As String = &quot;http://schemas.microsoft.com/cdo/configuration/&quot;</span><span class="ln">    Dim msg As Object, conf As Object</span><span class="ln"> </span><span class="ln">    On Error GoTo Fail</span><span class="ln">    Set conf = CreateObject(&quot;CDO.Configuration&quot;)</span><span class="ln">    With conf.Fields</span><span class="ln">        .Item(CFG &amp; &quot;sendusing&quot;) = 2                    &#x27; 외부 SMTP 서버 사용</span><span class="ln">        .Item(CFG &amp; &quot;smtpserver&quot;) = &quot;smtp.naver.com&quot;</span><span class="ln">        .Item(CFG &amp; &quot;smtpserverport&quot;) = 465</span><span class="ln">        .Item(CFG &amp; &quot;smtpusessl&quot;) = True                &#x27; SSL 보안 연결</span><span class="ln">        .Item(CFG &amp; &quot;smtpauthenticate&quot;) = 1             &#x27; 아이디/비밀번호 인증</span><span class="ln">        .Item(CFG &amp; &quot;sendusername&quot;) = SMTP_USER</span><span class="ln">        .Item(CFG &amp; &quot;sendpassword&quot;) = SMTP_PASS</span><span class="ln">        .Item(CFG &amp; &quot;smtpconnectiontimeout&quot;) = 30</span><span class="ln">        .Update</span><span class="ln">    End With</span><span class="ln"> </span><span class="ln">    Set msg = CreateObject(&quot;CDO.Message&quot;)</span><span class="ln">    With msg</span><span class="ln">        Set .Configuration = conf</span><span class="ln">        .BodyPart.Charset = &quot;utf-8&quot;                     &#x27; 한글 깨짐 방지</span><span class="ln">        .From = &quot;&quot;&quot;&quot; &amp; FROM_NAME &amp; &quot;&quot;&quot; &lt;&quot; &amp; FROM_ADDR &amp; &quot;&gt;&quot;</span><span class="ln">        .To = toAddr</span><span class="ln">        .Subject = subj</span><span class="ln">        .TextBody = body</span><span class="ln">        .Send</span><span class="ln">    End With</span><span class="ln">    SendNaverMail = &quot;&quot;</span><span class="ln">    Exit Function</span><span class="ln"> </span><span class="ln">Fail:</span><span class="ln">    SendNaverMail = Err.Description</span><span class="ln">End Function</span></code></pre>
+        </div>
+      </section>
+
+    <div class="foot">각 블록의 <b>복사</b> 버튼으로 프롬프트·코드를 바로 붙여넣을 수 있습니다.</div>
+  </div>
+
+  <script>
+    /* ── VBA 구문 강조 ── */
+    const KW = new Set(('sub end function dim as string long boolean variant integer double object workbook worksheet range ' +
+      'if then else elseif exit do while loop for each to next step set new nothing not and or select case with ' +
+      'on error goto resume private public const option explicit true false is like call byval byref me').split(' '));
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const span = (c, s) => `<span class="${c}">${esc(s)}</span>`;
+
+    function hl(s) {
+      let out = '', i = 0;
+      while (i < s.length) {
+        const ch = s[i];
+        if (ch === '"') {
+          let j = i + 1;
+          while (j < s.length) { if (s[j] === '"') { if (s[j + 1] === '"') { j += 2; continue; } j++; break; } j++; }
+          out += span('s', s.slice(i, j)); i = j;
+        } else if (ch === "'") {
+          out += span('cm', s.slice(i)); break;
+        } else if (/[A-Za-z_가-힣]/.test(ch)) {
+          let j = i; while (j < s.length && /[\w가-힣]/.test(s[j])) j++;
+          const w = s.slice(i, j);
+          out += KW.has(w.toLowerCase()) ? span('k', w) : esc(w); i = j;
+        } else if (/\d/.test(ch)) {
+          let j = i; while (j < s.length && /[\d.]/.test(s[j])) j++;
+          out += span('n', s.slice(i, j)); i = j;
+        } else { out += esc(ch); i++; }
+      }
+      return out;
+    }
+    document.querySelectorAll('.code .ln').forEach(l => { if (l.textContent.trim()) l.innerHTML = hl(l.textContent); });
+
+    /* ── 복사 ── */
+    function textOf(el) {
+      if (el.classList.contains('code'))
+        return [...el.querySelectorAll('.ln')].map(l => l.textContent.trim() ? l.textContent : '').join('\n');
+      return el.textContent;
+    }
+    async function copyText(t) {
+      try { await navigator.clipboard.writeText(t); return true; }
+      catch {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch { }
+        ta.remove(); return ok;
+      }
+    }
+    document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
+      const ok = await copyText(textOf(document.getElementById(b.dataset.t)));
+      b.textContent = ok ? '복사됨 ✓' : '복사 실패';
+      b.classList.toggle('done', ok);
+      setTimeout(() => { b.textContent = '복사'; b.classList.remove('done'); }, 1600);
+    }));
+
+    /* ── 목차 현재 위치 표시 ── */
+    const links = [...document.querySelectorAll('.toc a')];
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting) return;
+      links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+    }), { rootMargin: '-40% 0px -55% 0px' });
+    document.querySelectorAll('.ex').forEach(s => io.observe(s));
+  </script>
+</body>
+
+</html>
