@@ -29,6 +29,7 @@ import { SavedModal, XmlExportModal, XmlImportModal } from "./components/XmlModa
 import { findControl, findGroup } from "./model/walk";
 import { validateDoc } from "./model/validate";
 import { buildWorkbookBlob, downloadName } from "./ooxml/write";
+import { localHelper, saveViaHelper } from "./ooxml/localSave";
 import { useEditorStore } from "./store/useEditorStore";
 import { generateVba } from "./vba/generate";
 import { collectCallbacks } from "./vba/generate";
@@ -48,7 +49,7 @@ export function App() {
   const [confirm, setConfirm] = useState<{ message: string; run: () => void } | null>(null);
   const [issues, setIssues] = useState<ReturnType<typeof validateDoc> | null>(null);
   const [notice, setNotice] = useState("");
-  const [saved, setSaved] = useState<{ name: string; includeVba: boolean; hasCallback: boolean; appendedModule?: string } | null>(null);
+  const [saved, setSaved] = useState<{ name: string; includeVba: boolean; hasCallback: boolean; appendedModule?: string; savedPath?: string } | null>(null);
 
   useEffect(() => {
     const onBefore = (e: BeforeUnloadEvent) => {
@@ -200,18 +201,36 @@ export function App() {
       setNotice(`${opts.report.vbaError} 기존 VBA는 그대로 저장했습니다. 새 매크로는 VBA 패널의 코드를 복사해 붙여 넣으세요.`);
     }
     const name = downloadName({ ...opts, includeVba: opts.includeVba });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      URL.revokeObjectURL(a.href);
-      a.remove();
-    }, 1000);
+    // 로컬 실행기로 열렸으면 브라우저 다운로드 대신 실행기가 파일을 직접 쓴다
+    // ('인터넷에서 받음' 표시가 붙지 않아 엑셀이 매크로를 막지 않는다).
+    let savedPath: string | undefined;
+    if (await localHelper()) {
+      try {
+        savedPath = await saveViaHelper(blob, name);
+      } catch (err) {
+        setNotice(`로컬 실행기로 저장하지 못해 브라우저 다운로드로 저장합니다. (${err instanceof Error ? err.message : "오류"})`);
+      }
+    }
+    if (!savedPath) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 1000);
+    }
     s.markSaved();
-    setSaved({ name, includeVba: opts.includeVba && !opts.report.vbaError, hasCallback: collectCallbacks(s.ribbon).length > 0, appendedModule: opts.report.appendedModule });
+    setSaved({
+      name: savedPath ? savedPath.split(/[\\/]/).pop() ?? name : name,
+      includeVba: opts.includeVba && !opts.report.vbaError,
+      hasCallback: collectCallbacks(s.ribbon).length > 0,
+      appendedModule: opts.report.appendedModule,
+      savedPath,
+    });
   }, []);
 
   const beginSave = () => {
@@ -334,7 +353,7 @@ export function App() {
           }}
         />
       ) : null}
-      {saved ? <SavedModal fileName={saved.name} includeVba={saved.includeVba} hasCallback={saved.hasCallback} appendedModule={saved.appendedModule} onClose={() => setSaved(null)} /> : null}
+      {saved ? <SavedModal fileName={saved.name} includeVba={saved.includeVba} hasCallback={saved.hasCallback} appendedModule={saved.appendedModule} savedPath={saved.savedPath} onClose={() => setSaved(null)} /> : null}
     </div>
   );
 }
