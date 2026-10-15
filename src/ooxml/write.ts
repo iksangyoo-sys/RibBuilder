@@ -44,16 +44,26 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return b64ToBytes(b64);
 }
 
-export function downloadName(opts: SaveOptions): string {
+export function downloadName(opts: SaveOptions, now: Date = new Date()): string {
   let name = opts.fileName || "새 통합문서.xlsx";
   const m = /^(.*?)(\.(xlsx|xlsm|xlsb|xlam))?$/i.exec(name);
-  // 이전에 받은 "이름_ribbon", "이름_ribbon_1", "이름_ribbon (1)" 은 원래 이름으로 되돌린다.
-  const base = (m?.[1] || "새 통합문서").replace(/_ribbon(?:_\d+| ?\(\d+\))?$/i, "");
+  // 이전에 받은 "이름_ribbon", "이름_ribbon_1", "이름_ribbon (1)", "이름_ribbon_1015_1753" 은 원래 이름으로 되돌린다.
+  const base = (m?.[1] || "새 통합문서").replace(/_ribbon(?:_\d{4}_\d{4})?(?:_\d+| ?\(\d+\))?$/i, "");
   let ext = m?.[2] || ".xlsx";
   // 매크로 없는 .xlsx만 .xlsm으로 바꾼다 (.xlsm·.xlam·.xlsb는 이미 매크로를 담을 수 있다).
   if (opts.includeVba && ext.toLowerCase() === ".xlsx") ext = ".xlsm";
   // 새로 만든 통합 문서는 "새 통합문서.xlsm"처럼 그대로, 불러온 파일은 원본과 구분되게 _ribbon을 붙인다.
-  return opts.originKind === "blank" ? `${base}${ext}` : `${base}_ribbon${ext}`;
+  if (opts.originKind === "blank") return `${base}${ext}`;
+  // 추가 기능은 저장할 때마다 이름이 달라야 한다: 같은 이름의 .xlam이 두 곳에 있으면
+  // ("이름이 같은 통합 문서가 열려 있습니다") 엑셀이 새 추가 기능을 열지 못한다.
+  if (ext.toLowerCase() === ".xlam") return `${base}_ribbon_${stamp(now)}${ext}`;
+  return `${base}_ribbon${ext}`;
+}
+
+/** 월일_시분 (예: 1015_1753). */
+function stamp(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
 export function mimeOfSave(opts: SaveOptions): string {
