@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as CFB from "cfb";
 import { compressOvba, decompressOvba } from "./compress";
 import { buildVbaProject } from "./embed";
-import { extractPublicSubs } from "./extract";
+import { extractModules, extractPublicSubs } from "./extract";
 
 describe("extractPublicSubs", () => {
   it("한국어 코드 페이지로 저장된 매크로 이름을 그대로 읽는다", () => {
@@ -44,5 +44,16 @@ describe("extractPublicSubs", () => {
     entry("dir").size = packed.length;
     const bin = Uint8Array.from(CFB.write(cfb, { type: "array" }) as number[]);
     expect(extractPublicSubs(bin)).toEqual(["btn_실행"]);
+  });
+});
+
+describe("extractModules", () => {
+  it("모듈 이름과 코드를 Attribute 줄 없이 돌려준다", () => {
+    const bin = buildVbaProject("Sub btn_실행(control As IRibbonControl)\r\n    MsgBox \"안녕\"\r\nEnd Sub\r\n");
+    const modules = extractModules(bin);
+    const callbacks = modules.find((m) => m.name === "RibbonCallbacks");
+    expect(callbacks?.code).toContain("Sub btn_실행(control As IRibbonControl)");
+    expect(callbacks?.code).toContain("MsgBox \"안녕\"");
+    expect(modules.every((m) => !/Attribute\s+VB_/i.test(m.code))).toBe(true);
   });
 });

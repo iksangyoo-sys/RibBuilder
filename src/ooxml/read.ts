@@ -3,7 +3,7 @@ import { parseCustomUi, type ParseResult } from "@/xml/parse";
 import { parseRelationships, relsPathFor, resolvePath, UI_REL_2006, UI_REL_2007 } from "./rels";
 import { classifyOpenError, RibbonFileError } from "./errors";
 import type { OriginKind, RibbonImage } from "@/model/types";
-import { extractPublicSubs } from "@/ovba/extract";
+import { extractModules, extractPublicSubs, type VbaModule } from "@/ovba/extract";
 
 export interface OpenedWorkbook {
   bytes: Uint8Array;
@@ -127,4 +127,16 @@ export async function openWorkbook(buf: ArrayBuffer | Uint8Array, fileName: stri
     hasVba: Boolean(vbaFile),
     encrypted: false,
   };
+}
+
+/** 불러온 파일에 들어 있는 VBA 모듈 코드 (화면에 읽기 전용으로 보여 주는 용도). 없거나 읽지 못하면 빈 배열. */
+export async function readVbaModules(bytes: Uint8Array): Promise<VbaModule[]> {
+  try {
+    const zip = await JSZip.loadAsync(bytes);
+    const vbaFile = Object.keys(zip.files).find((p) => /vbaProject\.bin$/i.test(p));
+    if (!vbaFile) return [];
+    return extractModules(await zip.file(vbaFile)!.async("uint8array"));
+  } catch {
+    return [];
+  }
 }
