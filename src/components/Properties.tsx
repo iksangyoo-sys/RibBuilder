@@ -7,7 +7,7 @@ import { isXmlId } from "@/model/ids";
 import { createButton, createItem, issuerFromRibbon } from "@/model/factory";
 import { useEditorStore } from "@/store/useEditorStore";
 import { vbaNameError } from "@/vba/names";
-import { KIND_NAME, fieldKind, signatureClash } from "@/vba/generate";
+import { KIND_NAME, fieldKind, paramsMismatch, signatureClash } from "@/vba/generate";
 import { useEffect, useState } from "react";
 
 type Props = { onDelete: () => void; onIcon: () => void; onNewMacro: (key: string) => void };
@@ -246,7 +246,7 @@ function MacroField({
   control, macros, onNew, onChange,
 }: {
   control: Control;
-  macros: { name: string }[];
+  macros: { name: string; params?: string }[];
   onNew: (key: string) => void;
   onChange: (key: string, value: string) => void;
 }) {
@@ -292,6 +292,9 @@ function MacroField({
     if (msg) { setErr(msg); return; }
     const clash = signatureClash(ribbon, name, fieldKind(control.type, key), ownerUid, key);
     if (clash) { setErr(`${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}에 이미 쓰는 매크로라 형식이 맞지 않습니다.`); return; }
+    const known = macros.find((m) => m.name.toLowerCase() === name.toLowerCase());
+    const bad = paramsMismatch(known?.params, fieldKind(control.type, key));
+    if (bad) { setErr(`파일에 있는 "${known!.name}"은(는) ${bad.replace(/쓸 수 없음$/, "연결할 수 없습니다.")}`); return; }
     // 먼저 연결한 뒤 목록에 넣는다 (연결 없는 매크로는 목록에서 정리되므로).
     assign(key, name);
     useEditorStore.getState().addMacro({ name, source: "manual" });
@@ -319,9 +322,11 @@ function MacroField({
             {macros.map((m) => {
               // 형식(서명)이 다른 콜백에 이미 쓰인 매크로는 고를 수 없게 한다.
               const clash = m.name === f.value ? undefined : signatureClash(ribbon, m.name, fieldKind(control.type, f.key), ownerUid, f.key);
+              // 파일에 있는 Sub의 매개변수가 이 칸의 형식과 다르면 (예: LoadImage, 매개변수 없는 일반 매크로) 고를 수 없게 한다.
+              const bad = m.name === f.value ? undefined : paramsMismatch(m.params, fieldKind(control.type, f.key));
               return (
-                <option key={m.name} value={m.name} disabled={Boolean(clash)}>
-                  {clash ? `${m.name} — ${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}용이라 쓸 수 없음` : m.name}
+                <option key={m.name} value={m.name} disabled={Boolean(clash || bad)}>
+                  {clash ? `${m.name} — ${clash.label || clash.controlId}의 ${KIND_NAME[clash.kind]}용이라 쓸 수 없음` : bad ? `${m.name} — ${bad}` : m.name}
                 </option>
               );
             })}

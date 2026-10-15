@@ -313,7 +313,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     openFile: async (file) => {
       const opened = await openWorkbook(await file.arrayBuffer(), file.name);
       const ribbon = ensureBuiltinTabs(opened.ribbon.doc);
-      const fromFile: MacroDef[] = opened.fileMacros.map((name) => ({ name, source: "file" }));
+      const fromFile: MacroDef[] = opened.fileMacros.map((name) => ({ name, source: "file", params: opened.fileMacroParams[name] }));
       const fromXml = macrosFromDoc(ribbon, "manual").filter((m) => !fromFile.some((f) => f.name === m.name));
       const next = {
         ...get(),
