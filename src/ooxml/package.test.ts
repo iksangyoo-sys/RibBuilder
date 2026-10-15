@@ -110,9 +110,13 @@ describe("workbook package", () => {
 
   it("추가 기능·매크로 통합 문서는 확장자를 그대로 두고, .xlsx만 .xlsm으로 바꾼다", () => {
     const base = { originBytes: null, doc: { tabs: [] }, images: [], vbaSource: "", hasExistingVba: true, includeVba: true };
-    expect(downloadName({ ...base, originKind: "xlam", fileName: "도구.xlam" })).toBe("도구_ribbon.xlam");
-    expect(downloadName({ ...base, originKind: "xlam", fileName: "업무자동화_ribbon_1.xlam" })).toBe("업무자동화_ribbon.xlam");
-    expect(downloadName({ ...base, originKind: "xlam", fileName: "업무자동화_ribbon (2).xlam" })).toBe("업무자동화_ribbon.xlam");
+    // 추가 기능은 저장 시각을 붙여 같은 이름의 .xlam이 생기지 않게 한다.
+    const at = new Date(2026, 9, 15, 17, 53);
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "도구.xlam" }, at)).toBe("도구_ribbon_1015_1753.xlam");
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "업무자동화_ribbon_1.xlam" }, at)).toBe("업무자동화_ribbon_1015_1753.xlam");
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "업무자동화_ribbon (2).xlam" }, at)).toBe("업무자동화_ribbon_1015_1753.xlam");
+    // 앞서 받은 버전을 다시 불러와 저장해도 시각이 겹쳐 붙지 않는다.
+    expect(downloadName({ ...base, originKind: "xlam", fileName: "도구_ribbon_1015_1753.xlam" }, new Date(2026, 9, 16, 9, 5))).toBe("도구_ribbon_1016_0905.xlam");
     expect(downloadName({ ...base, originKind: "xlsm", fileName: "a_ribbon.xlsm" })).toBe("a_ribbon.xlsm");
     expect(downloadName({ ...base, originKind: "xlsx", fileName: "b.xlsx" })).toBe("b_ribbon.xlsm");
     expect(downloadName({ ...base, originKind: "blank", fileName: "새 통합문서.xlsx" })).toBe("새 통합문서.xlsm");

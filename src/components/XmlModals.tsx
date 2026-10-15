@@ -165,6 +165,25 @@ export function CodeView({ text, highlight }: { text: string; highlight?: string
   );
 }
 
+const ADDIN_DIR = "%APPDATA%\\Microsoft\\AddIns";
+
+function CopyText({ text, label }: { text: string; label: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      className="rounded border border-line px-1.5 py-0.5 text-xs text-mute hover:bg-mist"
+      onClick={() => {
+        void navigator.clipboard.writeText(text);
+        setDone(true);
+        window.setTimeout(() => setDone(false), 1200);
+      }}
+    >
+      {done ? "복사됨" : label}
+    </button>
+  );
+}
+
 export function SavedModal({
   fileName, includeVba, hasCallback, appendedModule, onClose,
 }: {
@@ -182,14 +201,24 @@ export function SavedModal({
         <p className="mb-2 text-sm">기존 VBA 코드는 그대로 두고, 새 매크로를 <b>{appendedModule}</b> 모듈에 넣었습니다.</p>
       ) : null}
       {includeVba && /\.xlam$/i.test(fileName) ? (
-        <ol className="list-decimal space-y-1 pl-5 text-sm">
-          {/* 추가 기능은 노란 막대가 없어, 차단된 채로 조용히 실행되지 않는다. */}
-          <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인.</li>
-          <li>파일을 추가 기능 폴더(탐색기 주소창에 <b>%APPDATA%\Microsoft\AddIns</b>)로 옮깁니다.</li>
-          <li>엑셀 → <b>개발 도구 → Excel 추가 기능</b>에서 이 파일을 체크합니다. (예전 버전이 있으면 먼저 체크 해제)</li>
-          <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
-          <li>Alt+F11 → <b>{appendedModule ?? "RibbonCallbacks"}</b> 모듈의 TODO 자리에 실제 코드를 채우고, VBA 편집기에서 Ctrl+S로 저장합니다.</li>
-        </ol>
+        <>
+          {/* 추가 기능은 노란 막대가 없어, 차단되거나 이름이 겹치면 조용히 실행되지 않는다. */}
+          <div className="mb-3 rounded border border-sand bg-amber-50 p-3 text-sm">
+            <p className="mb-1 font-semibold">추가 기능(.xlam)이 동작하지 않는 흔한 원인 두 가지</p>
+            <ul className="list-disc space-y-0.5 pl-5">
+              <li><b>차단 해제를 하지 않음</b> — 인터넷에서 받은 파일이라 엑셀이 매크로를 조용히 막습니다.</li>
+              <li><b>같은 이름의 .xlam이 두 곳에 있음</b> — 다운로드 폴더·바탕화면에 남은 파일과 추가 기능 폴더의 파일이 겹치면 엑셀이 열지 못합니다.</li>
+            </ul>
+          </div>
+          <ol className="list-decimal space-y-1 pl-5 text-sm">
+            <li>내려받은 파일에서 마우스 오른쪽 → <b>속성</b> → 아래쪽 <b>차단 해제</b>에 체크 → 확인. <span className="text-clay">(꼭 먼저)</span></li>
+            <li>파일을 추가 기능 폴더로 <b>옮깁니다(복사 말고 잘라내기)</b>. 탐색기 주소창에 <b>{ADDIN_DIR}</b> <CopyText text={ADDIN_DIR} label="주소 복사" /><br /><span className="text-mute">다운로드 폴더나 바탕화면에 같은 파일을 남기지 마세요.</span></li>
+            <li>엑셀 → <b>개발 도구 → Excel 추가 기능</b>에서 <b>예전 버전의 체크를 먼저 해제</b>하고, 이 파일(<b>{fileName}</b>)을 체크합니다. 예전 파일은 추가 기능 폴더에서 지웁니다.</li>
+            <li>.xlam 파일을 <b>더블클릭해서 열지 마세요</b>. 추가 기능은 위 창에서 켜고 끕니다.</li>
+            <li>리본 단추를 눌러 “… 호출됨” 메시지가 뜨는지 확인합니다.</li>
+            <li>Alt+F11 → <b>{appendedModule ?? "RibbonCallbacks"}</b> 모듈의 TODO 자리에 실제 코드를 채우고, VBA 편집기에서 Ctrl+S로 저장합니다.</li>
+          </ol>
+        </>
       ) : includeVba ? (
         <ol className="list-decimal space-y-1 pl-5 text-sm">
           {/* 인터넷에서 받은 파일은 Windows가 매크로를 막는다 ("보안 위험" 막대). */}
