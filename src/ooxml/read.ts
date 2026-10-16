@@ -3,7 +3,7 @@ import { parseCustomUi, type ParseResult } from "@/xml/parse";
 import { parseRelationships, relsPathFor, resolvePath, UI_REL_2006, UI_REL_2007 } from "./rels";
 import { classifyOpenError, RibbonFileError } from "./errors";
 import type { OriginKind, RibbonImage } from "@/model/types";
-import { extractModules, extractPublicSubs, extractSubParams, type VbaModule } from "@/ovba/extract";
+import { analyzeVba, extractModules, hiddenSubs, type VbaModule, type VbaProblem } from "@/ovba/extract";
 
 export interface OpenedWorkbook {
   bytes: Uint8Array;
@@ -16,6 +16,12 @@ export interface OpenedWorkbook {
   fileMacroParams: Record<string, string>;
   hasVba: boolean;
   encrypted: boolean;
+  /** 파일 VBA에서 찾은, 엑셀에서 매크로가 모두 멈추게 하는 문제 (모호한 이름, 자기 자신 호출 …). */
+  vbaProblems: VbaProblem[];
+  /** 표준 모듈에 이미 있는 Public Sub·Function 이름 (소문자). 같은 이름을 새로 만들면 "모호한 이름" 오류. */
+  vbaTaken: string[];
+  /** 리본이 부를 수 없는 곳(문서 모듈, Private)에만 있는 Sub 이름 → 이유. */
+  vbaHidden: Record<string, string>;
 }
 
 function sniffKind(name: string, zip: JSZip): OriginKind {
@@ -113,16 +119,16 @@ export async function openWorkbook(buf: ArrayBuffer | Uint8Array, fileName: stri
   const vbaFile = Object.keys(zip.files).find((p) => /vbaProject\.bin$/i.test(p));
   let fileMacros: string[] = [];
   let fileMacroParams: Record<string, string> = {};
+  let vba: Pick<OpenedWorkbook, "vbaProblems" | "vbaTaken" | "vbaHidden"> = { vbaProblems: [], vbaTaken: [], vbaHidden: {} };
   if (vbaFile) {
     const bin = await zip.file(vbaFile)!.async("uint8array");
     try {
-      fileMacros = extractPublicSubs(bin);
+      const a = analyzeVba(bin);
+      fileMacros = a.callable;
+      fileMacroParams = a.params;
+      vba = { vbaProblems: a.problems, vbaTaken: a.taken, vbaHidden: hiddenSubs(bin) };
     } catch {
       fileMacros = [];
-    }
-    try {
-      fileMacroParams = extractSubParams(bin);
-    } catch {
       fileMacroParams = {};
     }
   }
@@ -136,6 +142,7 @@ export async function openWorkbook(buf: ArrayBuffer | Uint8Array, fileName: stri
     fileMacroParams,
     hasVba: Boolean(vbaFile),
     encrypted: false,
+    ...vba,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { MacroDef, OriginKind, RibbonDoc, RibbonImage } from "@/model/types";
+import type { VbaProblem } from "@/ovba/extract";
 
 export const DRAFT_KEY = "excel-ribbon-builder-draft";
 
@@ -10,6 +11,9 @@ export interface DraftPayload {
   /** 3부터 includeVba가 사용자의 선택이다. 그 전 초안은 VBA 저장이 막혀 있었거나(1) 기존 VBA 파일에서 꺼져 있어(2) 값이 의미 없다. */
   vbaPref?: number;
   hasExistingVba: boolean;
+  vbaProblems?: VbaProblem[];
+  vbaTaken?: string[];
+  vbaHidden?: Record<string, string>;
   ribbon: RibbonDoc;
   images: RibbonImage[];
   macros: MacroDef[];
@@ -44,6 +48,9 @@ export function saveDraft(payload: Omit<DraftPayload, "savedAt" | "originBytesB6
       includeVba: payload.includeVba,
       vbaPref: 3,
       hasExistingVba: payload.hasExistingVba,
+      vbaProblems: payload.vbaProblems,
+      vbaTaken: payload.vbaTaken,
+      vbaHidden: payload.vbaHidden,
       ribbon: payload.ribbon,
       images: payload.images,
       macros: payload.macros,

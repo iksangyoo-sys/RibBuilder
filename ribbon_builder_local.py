@@ -30,6 +30,9 @@ ADDINS = os.path.join(os.environ.get("APPDATA", HERE), "Microsoft", "AddIns")
 DOWNLOADS = os.path.join(os.path.expanduser("~"), "Downloads")
 MAX_BYTES = 50 * 1024 * 1024
 ALLOWED_EXT = {".xlam", ".xlsm", ".xlsx", ".xlsb"}
+# 이번 실행에서 저장한 파일. 다음 저장 때 학생이 엑셀에서 고친 내용(VBA)을 반영하려고 다시 읽는데,
+# 이 목록에 있는 파일만 읽어 준다.
+SAVED: set[str] = set()
 
 
 def safe_name(raw: str) -> str:
@@ -75,6 +78,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._send(404, "ribbon-editor.html을 찾지 못했습니다. 이 프로그램과 같은 폴더에 두세요.".encode("utf-8"), "text/plain; charset=utf-8")
         elif path == "/api/ping":
             self._json(200, {"ok": True, "addins": ADDINS, "downloads": DOWNLOADS})
+        elif path == "/api/read":
+            # 사용자 지정 헤더가 있어야 하므로 다른 사이트는 (사전 요청에서 막혀) 부를 수 없다.
+            if self.headers.get("X-Ribbon-Builder") != "1":
+                return self._json(403, {"ok": False, "error": "Ribbon Builder 페이지에서만 읽을 수 있습니다."})
+            want = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("path", [""])[0]
+            target = os.path.normcase(os.path.abspath(want))
+            if target not in SAVED:
+                return self._json(404, {"ok": False, "error": "이 실행기가 저장한 파일만 읽을 수 있습니다."})
+            try:
+                with open(target, "rb") as f:
+                    self._send(200, f.read(), "application/octet-stream")
+            except OSError as e:
+                self._json(404, {"ok": False, "error": str(e)})
         else:
             self._send(404, b"not found", "text/plain")
 
@@ -96,6 +112,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             path = free_path(folder, name)
             with open(path, "wb") as f:
                 f.write(data)
+            SAVED.add(os.path.normcase(os.path.abspath(path)))
             print(f"저장: {path}")
             self._json(200, {"ok": True, "path": path, "folder": folder})
         except Exception as e:  # noqa: BLE001 — 사용자에게 이유를 그대로 보여 준다

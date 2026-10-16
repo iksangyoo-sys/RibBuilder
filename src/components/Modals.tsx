@@ -17,7 +17,10 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
         <li>[+ 탭 추가]로 사용자 탭을 만들고, [+]로 그룹을 만듭니다.</li>
         <li>왼쪽 요소를 클릭하거나 끌어다 놓습니다. 내장 그룹은 드롭다운에서 고릅니다.</li>
         <li>탭·그룹·컨트롤을 오른쪽 클릭해 이름 변경, 복제, 복사/붙여넣기, 삭제합니다.</li>
-        <li>하단 [XML 내보내기]에서 코드를 복사하거나 파일을 저장한 뒤, 엑셀 모듈에 VBA를 붙여 넣습니다.</li>
+        <li>컨트롤마다 오른쪽 속성의 <b>onAction</b> 칸에 매크로를 연결합니다. (getSelectedItemID·getPressed·getText는 초기값용이라 보통 비워 둡니다)</li>
+        <li>[저장하기]를 누르면 매크로 틀(RibbonCallbacks 모듈)이 들어간 파일이 만들어집니다. 그 파일을 엑셀에서 열고 Alt+F11로 TODO 자리에 코드를 채운 뒤 <b>Ctrl+S</b>로 저장합니다.</li>
+        <li>리본을 더 고칠 때는 엑셀에서 먼저 <b>저장(Ctrl+S)</b>한 뒤 빌더에서 저장하세요. 빌더가 저장할 때 그 파일을 다시 읽어, 엑셀에서 쓴 VBA를 그대로 둡니다.</li>
+        <li>콜백 안에서 다른 매크로를 부를 때는 <b>콜백과 다른 이름</b>을 적으세요. 같은 이름을 적으면 자기 자신을 불러 모든 매크로가 멈춥니다.</li>
         <li>파일은 이 브라우저 안에서만 읽고 씁니다. Ctrl+Z / Ctrl+S를 쓸 수 있습니다.</li>
       </ol>
       <button type="button" className="mt-4 rounded bg-pine px-3 py-1 text-white" onClick={onClose}>닫기</button>
@@ -259,6 +262,37 @@ function suggestMacroName(type: string | undefined, key: string, taken: string[]
   let name = base;
   for (let n = 2; taken.includes(name); n++) name = `${base}${n}`;
   return name;
+}
+
+/** 저장 전에 바탕이 될 엑셀 파일을 다시 고르게 한다 (그 사이 엑셀에서 고친 VBA를 잃지 않게). */
+export function OriginPickModal({ fileName, allowKeep, onPick, onKeep, onClose }: {
+  fileName: string;
+  /** "엑셀에서 고치지 않았음 — 그대로 저장"을 보여 줄지. 지난 작업에서 이어 온 경우에는 보여 주지 않는다. */
+  allowKeep: boolean;
+  onPick: () => void;
+  onKeep: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Backdrop onClose={onClose}>
+      <h3 className="mb-2 text-lg font-bold">저장하기 전에 엑셀 파일을 다시 골라 주세요</h3>
+      <p className="mb-2 text-sm">
+        <b>{fileName}</b>을(를) 엑셀에서 열어 VBA를 쓰거나 데이터를 고쳤다면, 빌더가 가진 예전 내용으로 저장할 때 그 내용이 사라집니다.
+        최신 파일을 다시 고르면 그 내용을 그대로 두고 리본만 바꿔 저장합니다.
+      </p>
+      <ol className="mb-3 list-decimal space-y-0.5 pl-5 text-sm">
+        <li>엑셀에서 그 파일을 <b>저장(Ctrl+S)</b>합니다. 엑셀을 닫지 않아도 됩니다.</li>
+        <li>아래 <b>파일 다시 고르기</b>를 눌러 <b>{fileName}</b>을(를) 고릅니다.</li>
+      </ol>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <button type="button" className="rounded border border-line px-3 py-1" onClick={onClose}>취소</button>
+        {allowKeep ? (
+          <button type="button" className="rounded border border-line px-3 py-1 text-sm text-mute" onClick={onKeep}>엑셀에서 고친 적 없음 · 그대로 저장</button>
+        ) : null}
+        <button type="button" className="rounded bg-pine px-3 py-1 font-semibold text-white" onClick={onPick}>파일 다시 고르기</button>
+      </div>
+    </Backdrop>
+  );
 }
 
 export function ConfirmModal({ message, onYes, onNo }: { message: string; onYes: () => void; onNo: () => void }) {
