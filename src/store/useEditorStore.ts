@@ -21,6 +21,27 @@ import { macrosFromDoc, mergeRibbon } from "@/xml/merge";
 import { EXAMPLES } from "@/examples";
 import { b64ToBytes, clearDraft, loadDraft, saveDraft } from "./persist";
 import { pruneMacros } from "@/vba/generate";
+import type { VbaProblem } from "@/ovba/extract";
+import { setOriginSource, type FileSystemFileHandleLike } from "@/ooxml/origin";
+import type { OpenedWorkbook } from "@/ooxml/read";
+
+/** 파일에서 읽은 매크로·VBA 정보. */
+function fileState(opened: OpenedWorkbook) {
+  return {
+    fileName: opened.fileName,
+    originKind: opened.kind,
+    originBytes: opened.bytes,
+    hasExistingVba: opened.hasVba,
+    originFresh: true,
+    vbaProblems: opened.vbaProblems,
+    vbaTaken: opened.vbaTaken,
+    vbaHidden: opened.vbaHidden,
+  };
+}
+
+function fileMacroDefs(opened: OpenedWorkbook): MacroDef[] {
+  return opened.fileMacros.map((name) => ({ name, source: "file" as const, params: opened.fileMacroParams[name] }));
+}
 
 function blankBytes(): Uint8Array {
   return b64ToBytes(BLANK_XLSX_B64);
@@ -38,6 +59,17 @@ export interface EditorState {
   originKind: OriginKind;
   originBytes: Uint8Array | null;
   hasExistingVba: boolean;
+  /**
+   * originBytes를 이 화면을 연 뒤 실제 파일에서 읽었는지. 지난 작업(자동 저장)에서 이어 온 바이트는
+   * 그 사이 엑셀에서 고친 VBA가 빠져 있을 수 있어, 저장 전에 원본 파일을 다시 고르게 한다.
+   */
+  originFresh: boolean;
+  /** 불러온 파일 VBA의 문제 (모호한 이름, 자기 자신 호출 …). */
+  vbaProblems: VbaProblem[];
+  /** 파일 표준 모듈에 이미 있는 Public Sub·Function 이름 (소문자). */
+  vbaTaken: string[];
+  /** 리본이 부를 수 없는 곳(문서 모듈, Private)에만 있는 Sub 이름 → 이유. */
+  vbaHidden: Record<string, string>;
   includeVba: boolean;
   dirty: boolean;
   ribbon: RibbonDoc;
@@ -51,7 +83,12 @@ export interface EditorState {
   startBlank: () => void;
   startExample: (id: string) => void;
   resumeDraft: () => boolean;
-  openFile: (file: File) => Promise<void>;
+  openFile: (file: File, handle?: FileSystemFileHandleLike) => Promise<void>;
+  /**
+   * 리본 편집 내용은 그대로 두고, 바탕이 되는 엑셀 파일만 bytes로 바꾼다
+   * (엑셀에서 고친 VBA·데이터를 반영하거나, 방금 저장한 파일을 다음 저장의 바탕으로 삼을 때).
+   */
+  rebase: (bytes: Uint8Array, fileName: string) => Promise<void>;
   setIncludeVba: (value: boolean) => void;
   select: (selection: Selection) => void;
   addTab: () => void;
@@ -143,6 +180,10 @@ function blankSession(): Pick<
   | "originKind"
   | "originBytes"
   | "hasExistingVba"
+  | "originFresh"
+  | "vbaProblems"
+  | "vbaTaken"
+  | "vbaHidden"
   | "includeVba"
   | "dirty"
   | "ribbon"
@@ -160,6 +201,10 @@ function blankSession(): Pick<
     originKind: "blank",
     originBytes: blankBytes(),
     hasExistingVba: false,
+    originFresh: true,
+    vbaProblems: [],
+    vbaTaken: [],
+    vbaHidden: {},
     includeVba: true,
     dirty: false,
     ribbon: emptyRibbon(),
@@ -182,6 +227,11 @@ function sessionFromDraft() {
     originKind: draft.originKind,
     originBytes: draft.originBytesB64 ? b64ToBytes(draft.originBytesB64) : blankBytes(),
     hasExistingVba: draft.hasExistingVba,
+    // 지난 작업의 바이트는 그 뒤 엑셀에서 고친 내용이 빠져 있을 수 있다 (새 문서는 디스크 파일이 없으니 그대로 쓴다).
+    originFresh: draft.originKind === "blank",
+    vbaProblems: draft.vbaProblems ?? [],
+    vbaTaken: draft.vbaTaken ?? [],
+    vbaHidden: draft.vbaHidden ?? {},
     includeVba: draft.vbaPref === 3 ? draft.includeVba : true,
     dirty: true,
     ribbon: ensureBuiltinTabs(draft.ribbon),
@@ -202,6 +252,9 @@ function persistState(s: EditorState): void {
     originBytes: s.originBytes,
     includeVba: s.includeVba,
     hasExistingVba: s.hasExistingVba,
+    vbaProblems: s.vbaProblems,
+    vbaTaken: s.vbaTaken,
+    vbaHidden: s.vbaHidden,
     ribbon: s.ribbon,
     images: s.images,
     macros: s.macros,
@@ -256,6 +309,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     ...blankSession(),
     ...(sessionFromDraft() ?? {}),
     startBlank: () => {
+      setOriginSource(null);
       const next = { ...get(), ...blankSession() };
       persistState(next);
       set(next);
@@ -263,6 +317,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     startExample: (id) => {
       const ex = EXAMPLES.find((e) => e.id === id);
       if (!ex) return;
+      setOriginSource(null);
       const ribbon = ensureBuiltinTabs(ex.doc());
       const macros = macrosFromDoc(ribbon, "builder");
       const next = {
@@ -272,6 +327,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
         originKind: "blank" as const,
         originBytes: blankBytes(),
         hasExistingVba: false,
+        originFresh: true,
+        vbaProblems: [],
+        vbaTaken: [],
+        vbaHidden: {},
         includeVba: true,
         dirty: true,
         ribbon,
@@ -297,6 +356,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
         originKind: draft.originKind,
         originBytes: draft.originBytesB64 ? b64ToBytes(draft.originBytesB64) : blankBytes(),
         hasExistingVba: draft.hasExistingVba,
+        originFresh: draft.originKind === "blank",
+        vbaProblems: draft.vbaProblems ?? [],
+        vbaTaken: draft.vbaTaken ?? [],
+        vbaHidden: draft.vbaHidden ?? {},
         includeVba: draft.vbaPref === 3 ? draft.includeVba : true,
         dirty: true,
         ribbon: ensureBuiltinTabs(draft.ribbon),
@@ -310,18 +373,17 @@ export const useEditorStore = create<EditorState>((set, get) => {
       });
       return true;
     },
-    openFile: async (file) => {
+    openFile: async (file, handle) => {
       const opened = await openWorkbook(await file.arrayBuffer(), file.name);
+      // 저장할 때 디스크의 최신 내용을 다시 읽을 수 있게 출처를 기억한다.
+      setOriginSource(handle ? { kind: "handle", handle } : { kind: "file", file });
       const ribbon = ensureBuiltinTabs(opened.ribbon.doc);
-      const fromFile: MacroDef[] = opened.fileMacros.map((name) => ({ name, source: "file", params: opened.fileMacroParams[name] }));
+      const fromFile = fileMacroDefs(opened);
       const fromXml = macrosFromDoc(ribbon, "manual").filter((m) => !fromFile.some((f) => f.name === m.name));
       const next = {
         ...get(),
+        ...fileState(opened),
         started: true,
-        fileName: opened.fileName,
-        originKind: opened.kind,
-        originBytes: opened.bytes,
-        hasExistingVba: opened.hasVba,
         includeVba: true,
         dirty: false,
         ribbon,
@@ -332,6 +394,21 @@ export const useEditorStore = create<EditorState>((set, get) => {
         clipboard: null,
         past: [],
         future: [],
+      };
+      persistState(next);
+      set(next);
+    },
+    rebase: async (bytes, fileName) => {
+      const opened = await openWorkbook(bytes, fileName);
+      const cur = get();
+      const fromFile = fileMacroDefs(opened);
+      const inFile = new Set(fromFile.map((m) => m.name.toLowerCase()));
+      // 빌더에서 만든 매크로 중 이제 파일에 들어 있는 것은 "파일의 매크로"가 된다 (다음 저장에서 또 만들지 않는다).
+      const rest = cur.macros.filter((m) => m.source !== "file" && !inFile.has(m.name.toLowerCase()));
+      const next = {
+        ...cur,
+        ...fileState(opened),
+        macros: pruneMacros(cur.ribbon, [...fromFile, ...rest]),
       };
       persistState(next);
       set(next);

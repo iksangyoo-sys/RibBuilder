@@ -260,19 +260,19 @@ function MacroField({
   }
   if (control.type === "toggleButton") {
     fields.push({ key: "onAction", label: "onAction — 토글 상태가 바뀔 때 호출 (pressed=True/False)", value: control.onAction });
-    fields.push({ key: "getPressed", label: "getPressed — 리본이 그려질 때 초기 눌림 상태", value: control.getPressed });
+    fields.push({ key: "getPressed", label: "getPressed — (선택·보통 비워 둠) 리본이 그려질 때 처음 눌림 상태만 정함", value: control.getPressed });
   }
   if (control.type === "checkBox") {
     fields.push({ key: "onAction", label: "onAction — 체크 상태가 바뀔 때 호출 (pressed=True/False)", value: control.onAction });
-    fields.push({ key: "getPressed", label: "getPressed — 리본이 그려질 때 초기 체크 상태", value: control.getPressed });
+    fields.push({ key: "getPressed", label: "getPressed — (선택·보통 비워 둠) 리본이 그려질 때 처음 체크 상태만 정함", value: control.getPressed });
   }
   if (control.type === "editBox" || control.type === "comboBox") {
     fields.push({ key: "onChange", label: "onChange — 값이 바뀔 때 호출 (text=문자열)", value: control.onChange });
-    fields.push({ key: "getText", label: "getText — 리본이 그려질 때 초기 텍스트", value: control.getText ?? "" });
+    fields.push({ key: "getText", label: "getText — (선택·보통 비워 둠) 리본이 그려질 때 처음 보여 줄 글자만 정함", value: control.getText ?? "" });
   }
   if (control.type === "dropDown") {
     fields.push({ key: "onAction", label: "onAction — 항목을 선택했을 때 호출 (id/index 전달)", value: control.onAction });
-    fields.push({ key: "getSelectedItemID", label: "getSelectedItemID — 리본 로드 시 — 초기 선택 항목을 결정", value: control.getSelectedItemID ?? "" });
+    fields.push({ key: "getSelectedItemID", label: "getSelectedItemID — (선택·보통 비워 둠) 처음 선택된 항목만 정함 · 항목을 골랐을 때 실행할 매크로는 위 onAction에", value: control.getSelectedItemID ?? "" });
   }
   if (control.type === "splitButton") {
     fields.push({ key: "onAction", label: "onAction — 주 버튼을 클릭했을 때 호출", value: control.button.onAction });

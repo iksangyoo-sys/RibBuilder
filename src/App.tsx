@@ -20,7 +20,7 @@ class LeftPointerSensor extends PointerSensor {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BottomPanel } from "./components/BottomPanel";
 import { Canvas, ContextMenu, type MenuState } from "./components/Canvas";
-import { ConfirmModal, HelpModal, IconModal, IssuesModal, MacroManager, NewMacroModal } from "./components/Modals";
+import { ConfirmModal, HelpModal, IconModal, IssuesModal, MacroManager, NewMacroModal, OriginPickModal } from "./components/Modals";
 import { FileBar } from "./components/FileBar";
 import { Header } from "./components/Header";
 import { Palette, parsePaletteId } from "./components/Palette";
@@ -30,6 +30,7 @@ import { findControl, findGroup } from "./model/walk";
 import { validateDoc } from "./model/validate";
 import { buildWorkbookBlob, downloadName } from "./ooxml/write";
 import { localHelper, saveViaHelper } from "./ooxml/localSave";
+import { pickWithHandle, readOriginSource, sameBytes, setOriginSource, type FileSystemFileHandleLike } from "./ooxml/origin";
 import { useEditorStore } from "./store/useEditorStore";
 import { generateVba } from "./vba/generate";
 import { collectCallbacks } from "./vba/generate";
@@ -37,6 +38,9 @@ import { collectCallbacks } from "./vba/generate";
 export function App() {
   const dirty = useEditorStore((s) => s.dirty);
   const fileRef = useRef<HTMLInputElement>(null);
+  // "원본 다시 고르기"용 파일 입력 (크롬·엣지가 아니라 핸들을 쓸 수 없을 때).
+  const reselectRef = useRef<HTMLInputElement>(null);
+  const [pickOrigin, setPickOrigin] = useState(false);
   const [menu, setMenu] = useState<MenuState>(null);
   const [renaming, setRenaming] = useState<{ kind: "tab" | "group"; uid: string } | null>(null);
   const [help, setHelp] = useState(false);
@@ -50,6 +54,13 @@ export function App() {
   const [issues, setIssues] = useState<ReturnType<typeof validateDoc> | null>(null);
   const [notice, setNotice] = useState("");
   const [saved, setSaved] = useState<{ name: string; includeVba: boolean; hasCallback: boolean; appendedModule?: string; savedPath?: string } | null>(null);
+
+  useEffect(() => {
+    const s = useEditorStore.getState();
+    if (!s.originFresh) {
+      setNotice(`지난 작업(${s.fileName})을 이어서 엽니다. 저장할 때 원본 엑셀 파일을 한 번 다시 고르게 됩니다 — 그 사이 엑셀에서 고친 VBA·데이터를 지키기 위해서입니다.`);
+    }
+  }, []);
 
   useEffect(() => {
     const onBefore = (e: BeforeUnloadEvent) => {
@@ -68,7 +79,7 @@ export function App() {
       const typing = ["INPUT", "TEXTAREA"].includes(tag);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        beginSave();
+        void beginSave();
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -223,7 +234,16 @@ export function App() {
         a.remove();
       }, 1000);
     }
-    s.markSaved();
+    // 방금 저장한 파일이 다음 저장의 바탕이 된다: 학생은 그 파일을 엑셀에서 열어 VBA를 채운다.
+    // 로컬 실행기로 저장했으면 경로로 다시 읽고, 브라우저로 내려받았으면 다음 저장 때 그 파일을 다시 고르게 한다.
+    try {
+      await useEditorStore.getState().rebase(new Uint8Array(await blob.arrayBuffer()), savedPath ? savedPath.split(/[\\/]/).pop() ?? name : name);
+      setOriginSource(savedPath ? { kind: "helper", path: savedPath } : null);
+    } catch {
+      // 저장은 끝났다. 바탕을 바꾸지 못하면 다음 저장 때 원본을 다시 고르게 된다.
+      setOriginSource(null);
+    }
+    useEditorStore.getState().markSaved();
     setSaved({
       name: savedPath ? savedPath.split(/[\\/]/).pop() ?? name : name,
       includeVba: opts.includeVba && !opts.report.vbaError,
@@ -233,16 +253,82 @@ export function App() {
     });
   }, []);
 
-  const beginSave = () => {
+  /**
+   * 저장 전에 디스크의 최신 파일을 다시 읽는다. 엑셀에서 VBA·데이터를 고쳤으면 그것을 바탕으로 저장한다.
+   * 다시 읽을 방법이 없으면 false (원본을 다시 고르게 한다).
+   */
+  const syncOrigin = async (): Promise<boolean> => {
     const s = useEditorStore.getState();
-    const found = validateDoc(s.ribbon, new Set(s.images.map((i) => i.id)), s.macros);
-    if (found.some((i) => i.level === "error") || found.length) setIssues(found);
+    if (s.originKind === "blank" && s.originFresh) return true;
+    const read = await readOriginSource();
+    if (!read.ok) return false;
+    if (!sameBytes(s.originBytes, read.bytes)) {
+      await s.rebase(read.bytes, read.name || s.fileName);
+      setNotice("엑셀에서 바뀐 내용(VBA·데이터)을 다시 읽어 그 파일을 바탕으로 저장합니다.");
+    }
+    return true;
+  };
+
+  const validateNow = () => {
+    const s = useEditorStore.getState();
+    return validateDoc(s.ribbon, new Set(s.images.map((i) => i.id)), s.macros, { problems: s.vbaProblems, taken: s.vbaTaken, hidden: s.vbaHidden });
+  };
+
+  const beginSave = async () => {
+    try {
+      if (!(await syncOrigin())) {
+        setPickOrigin(true);
+        return;
+      }
+    } catch (err) {
+      setNotice(`원본 파일을 다시 읽지 못했습니다. (${err instanceof Error ? err.message : "오류"})`);
+      setPickOrigin(true);
+      return;
+    }
+    const found = validateNow();
+    if (found.length) setIssues(found);
     else void saveNow();
   };
 
-  const openAnother = () => {
+  /** 원본 다시 고르기: 고른 파일을 바탕으로 바꾼 뒤 저장을 이어 간다. */
+  const reattach = async (file: File, handle?: FileSystemFileHandleLike) => {
+    const s = useEditorStore.getState();
+    const expected = s.fileName;
+    try {
+      await s.rebase(new Uint8Array(await file.arrayBuffer()), file.name);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "파일을 읽지 못했습니다.");
+      return;
+    }
+    setOriginSource(handle ? { kind: "handle", handle } : { kind: "file", file });
+    setPickOrigin(false);
+    if (file.name !== expected) setNotice(`"${expected}" 대신 "${file.name}"을(를) 바탕으로 저장합니다.`);
+    void beginSave();
+  };
+
+  const chooseOrigin = async () => {
+    const picked = await pickWithHandle();
+    if (picked === "cancel") return;
+    if (picked) void reattach(picked.file, picked.handle);
+    else reselectRef.current?.click();
+  };
+
+  const openPicked = (file: File, handle?: FileSystemFileHandleLike) => {
+    void useEditorStore.getState().openFile(file, handle)
+      .then(() => {
+        const problems = useEditorStore.getState().vbaProblems;
+        if (problems.length) setNotice(`이 파일의 VBA에 고쳐야 할 곳이 있습니다: ${problems[0].message}${problems.length > 1 ? ` (외 ${problems.length - 1}건 · 저장할 때 모두 보여 줍니다)` : ""}`);
+      })
+      .catch((err) => setNotice(err instanceof Error ? err.message : "열기 실패"));
+  };
+
+  const openAnother = async () => {
     if (dirty && !window.confirm("저장하지 않은 내용이 있습니다. 다른 파일을 열까요?")) return;
-    fileRef.current?.click();
+    // 크롬·엣지는 나중에 다시 읽을 수 있는 핸들로 연다 (저장할 때 엑셀에서 고친 내용을 자동으로 반영).
+    const picked = await pickWithHandle();
+    if (picked === "cancel") return;
+    if (picked) openPicked(picked.file, picked.handle);
+    else fileRef.current?.click();
   };
 
   const newDoc = () => {
@@ -259,11 +345,11 @@ export function App() {
     <div className="flex h-full flex-col" onContextMenu={(e) => e.preventDefault()}>
       <Header
         onNew={newDoc}
-        onOpen={openAnother}
-        onSave={beginSave}
+        onOpen={() => void openAnother()}
+        onSave={() => void beginSave()}
         onExample={openExample}
       />
-      <FileBar onOpenFile={openAnother} onSave={beginSave} onHelp={() => setHelp(true)} onMacros={() => setMacroManager(true)} />
+      <FileBar onOpenFile={() => void openAnother()} onSave={() => void beginSave()} onHelp={() => setHelp(true)} onMacros={() => setMacroManager(true)} />
       {notice ? <div className="bg-amber-50 px-4 py-2 text-sm text-sand">{notice}<button type="button" className="ml-3 underline" onClick={() => setNotice("")}>닫기</button></div> : null}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <div className="grid min-h-0 flex-1 grid-cols-[200px_minmax(0,1fr)_320px]">
@@ -299,7 +385,12 @@ export function App() {
       <input ref={fileRef} type="file" accept=".xlsx,.xlsm,.xlsb,.xlam" hidden onChange={(e) => {
         const file = e.target.files?.[0];
         e.target.value = "";
-        if (file) void useEditorStore.getState().openFile(file).catch((err) => setNotice(err instanceof Error ? err.message : "열기 실패"));
+        if (file) openPicked(file);
+      }} />
+      <input ref={reselectRef} type="file" accept=".xlsx,.xlsm,.xlsb,.xlam" hidden onChange={(e) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (file) void reattach(file);
       }} />
       <ContextMenu
         menu={menu}
@@ -345,12 +436,28 @@ export function App() {
           onClose={() => setIssues(null)}
           onContinue={issues.some((i) => i.level === "error") ? undefined : () => { setIssues(null); void saveNow(); }}
           onGoto={(uid) => {
+            if (!uid) return;
             const s = useEditorStore.getState();
             if (s.ribbon.tabs.some((t) => t.uid === uid)) s.select({ kind: "tab", uid });
             else if (findGroup(s.ribbon, uid)) s.select({ kind: "group", uid });
             else s.select({ kind: "control", uid });
             setIssues(null);
           }}
+        />
+      ) : null}
+      {pickOrigin ? (
+        <OriginPickModal
+          fileName={useEditorStore.getState().fileName}
+          // 이 화면에서 직접 읽은 파일(또는 방금 저장한 파일)이면 "엑셀에서 고치지 않았음"을 고를 수 있다.
+          allowKeep={useEditorStore.getState().originFresh}
+          onPick={() => void chooseOrigin()}
+          onKeep={() => {
+            setPickOrigin(false);
+            const found = validateNow();
+            if (found.length) setIssues(found);
+            else void saveNow();
+          }}
+          onClose={() => setPickOrigin(false)}
         />
       ) : null}
       {saved ? <SavedModal fileName={saved.name} includeVba={saved.includeVba} hasCallback={saved.hasCallback} appendedModule={saved.appendedModule} savedPath={saved.savedPath} onClose={() => setSaved(null)} /> : null}
