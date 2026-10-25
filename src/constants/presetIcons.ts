@@ -81,6 +81,20 @@ const LABELS: Record<string, string> = {
   "icons8-이메일-50.png": "이메일",
   "icons8-콘솔-48.png": "콘솔",
   "icons8-프로그램-작성-48.png": "코딩",
+  "icons8-3-귀엽다-48.png": "숫자 3",
+  "icons8-수집-48.png": "모으기",
+  "icons8-십자-표시-이모티콘-50.png": "X 표시",
+  "icons8-인쇄-48.png": "인쇄",
+  "icons8-회전-48.png": "새로 고침",
+  "icons8-address-50.png": "위치",
+  "icons8-delete-50.png": "삭제",
+  "icons8-filter-50.png": "필터",
+  "icons8-logout-50.png": "나가기",
+  "icons8-pdf-48.png": "PDF",
+  "icons8-people-50.png": "사람들",
+  "icons8-play-50.png": "실행",
+  "icons8-settings-50.png": "설정",
+  "icons8-tools-50.png": "도구",
 };
 
 const IDS: Record<string, string> = {
@@ -160,6 +174,20 @@ const IDS: Record<string, string> = {
   "icons8-이메일-50.png": "img_email",
   "icons8-콘솔-48.png": "img_console",
   "icons8-프로그램-작성-48.png": "img_code",
+  "icons8-3-귀엽다-48.png": "img_three",
+  "icons8-수집-48.png": "img_collect",
+  "icons8-십자-표시-이모티콘-50.png": "img_cross",
+  "icons8-인쇄-48.png": "img_print",
+  "icons8-회전-48.png": "img_refresh",
+  "icons8-address-50.png": "img_address",
+  "icons8-delete-50.png": "img_delete",
+  "icons8-filter-50.png": "img_filter",
+  "icons8-logout-50.png": "img_logout",
+  "icons8-pdf-48.png": "img_pdf",
+  "icons8-people-50.png": "img_people",
+  "icons8-play-50.png": "img_play",
+  "icons8-settings-50.png": "img_settings",
+  "icons8-tools-50.png": "img_tools",
 };
 
 export interface PresetIcon {
