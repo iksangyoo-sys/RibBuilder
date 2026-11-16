@@ -246,7 +246,7 @@ function MacroField({
   control, macros, onNew, onChange,
 }: {
   control: Control;
-  macros: { name: string; params?: string }[];
+  macros: { name: string; params?: string; source?: string }[];
   onNew: (key: string) => void;
   onChange: (key: string, value: string) => void;
 }) {
@@ -254,6 +254,23 @@ function MacroField({
   const [typing, setTyping] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [err, setErr] = useState("");
+  // 드롭다운에서 오른쪽 클릭으로 연 메뉴 (고른 매크로를 연결 해제하거나 목록에서 지운다)
+  const [menu, setMenu] = useState<{ x: number; y: number; key: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
   const fields: { key: string; label: string; value: string }[] = [];
   if (control.type === "button") {
     fields.push({ key: "onAction", label: "onAction — 버튼을 클릭했을 때 호출", value: control.onAction });
@@ -310,6 +327,13 @@ function MacroField({
           <select
             className="w-full rounded-md border border-line bg-white px-3 py-2"
             value={typing === f.key ? "__type__" : f.value}
+            title={f.value ? "오른쪽 클릭: 연결 해제 · 목록에서 삭제" : undefined}
+            onContextMenu={(e) => {
+              // 고른 매크로가 있을 때만 메뉴를 연다. 비어 있으면 브라우저 기본 메뉴를 그대로 둔다.
+              if (!f.value || typing === f.key) return;
+              e.preventDefault();
+              setMenu({ x: e.clientX, y: e.clientY, key: f.key, name: f.value });
+            }}
             onChange={(e) => {
               const v = e.target.value;
               if (v === "__new__") { setTyping(null); onNew(f.key); return; }
@@ -334,6 +358,38 @@ function MacroField({
             <option value="__type__">✏️ 직접 입력...</option>
             <option value="__new__">➕ 새 매크로 만들기</option>
           </select>
+          {menu && menu.key === f.key ? (() => {
+            const def = macros.find((m) => m.name === menu.name);
+            const fromFile = def?.source === "file";
+            return (
+              <div
+                role="menu"
+                className="fixed z-50 min-w-48 rounded-md border border-line bg-white py-1 text-sm shadow-lg"
+                style={{ left: Math.min(menu.x, window.innerWidth - 240), top: Math.min(menu.y, window.innerHeight - 110) }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="truncate px-3 py-1 text-xs text-mute">{menu.name}</div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full px-3 py-1.5 text-left hover:bg-line/40"
+                  onClick={() => { assign(menu.key, ""); setMenu(null); }}
+                >
+                  이 칸에서 연결 해제
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={fromFile}
+                  className="block w-full px-3 py-1.5 text-left text-clay hover:bg-line/40 disabled:text-mute disabled:hover:bg-transparent"
+                  title={fromFile ? "엑셀 파일 VBA에 있는 Sub라 목록에서 지울 수 없습니다." : undefined}
+                  onClick={() => { useEditorStore.getState().removeMacro(menu.name); setMenu(null); }}
+                >
+                  {fromFile ? "목록에서 삭제 (파일 VBA의 매크로라 불가)" : "목록에서 삭제"}
+                </button>
+              </div>
+            );
+          })() : null}
           {typing === f.key ? (
             <div className="mt-2">
               <div className="flex gap-2">
